@@ -8,8 +8,10 @@ p = 2
 boundaries = ones(2*d)
 boundaries[0] = -1.0
 boundaries[1] = -1.0
-boundaries[3] = -1.0
+boundaries[2] = -1.0
+boundaries[3] = 0.0
 T = 6.0
+boundaries[7] = T
 n_poincare = int(ceil(T/dt))
 
 def Step(u0,s,n):
@@ -99,7 +101,7 @@ def tangent_source(v0, u, s, ds):
 
 def DfDs(u,s):
 
-    dfds = zeros(d,p)
+    dfds = zeros((d,p))
     ds1 = [1.0, 0.0]
     ds2 = [0.0, 1.0]
     dfds[:,0] = tangent_source(zeros(d),u,s,ds1)
@@ -140,7 +142,7 @@ def gradfs(u,s):
 	dcoeff3_dy = s[1]*a*a*(-y)/r
 	dcoeff3_dz = s[1]*a*a*(-z)/r
 			
-	dFdu = zeros(d,d)
+	dFdu = zeros((d,d))
 
 	dFdu[0,0] = (-coeff2*y*y +
 				 coeff3 + dcoeff3_dx*x)
@@ -180,8 +182,6 @@ def gradfs(u,s):
 
 	dFdu[2,3] = (-0.5*pi*x*da_dt + dcoeff3_dt*z)
 
-	dFdu[3,3] = 1.0
-
 	return dFdu
 
 
@@ -190,7 +190,7 @@ def divGradfs(u,s):
 	epsi = 1.e-8			
 	dgf = zeros(d)
 	v = zeros(d)
-	tmp_matrix = zeros(d,d)
+	tmp_matrix = zeros((d,d))
 	for i in range(d):
 		v = zeros(d)
 		v[i] = 1.0
@@ -247,7 +247,7 @@ def tangent_step(v0,u,s,ds):
 		
 
 
-	v[1] += dt*(-1.0*dcoeff1_dz*y*dz - 1.0*
+	v[0] += dt*(-1.0*dcoeff1_dz*y*dz - 1.0*
 				coeff1*dy - dcoeff2_ds1*ds[0]*x*y*y - 
 				coeff2*y*y*dx - coeff2*x*2.0*y*dy + 
 				0.5*a*pi*dz + dcoeff3_ds2*ds[1]*x + 
@@ -259,7 +259,7 @@ def tangent_step(v0,u,s,ds):
 				0.5*da_dt*pi*z*dtime + 
 				dcoeff3_dt*x*dtime)
 
-	v[2] += dt*(coeff1*0.5*dx + 
+	v[1] += dt*(coeff1*0.5*dx + 
 				dcoeff1_dz*0.5*x*dz + 
 				dcoeff2_ds1*y*x*x*ds[0] + 
 				coeff2*dy*x*x + 
@@ -272,7 +272,7 @@ def tangent_step(v0,u,s,ds):
 				dcoeff2_dt*y*x*x*dtime + 
 				dcoeff3_dt*y*dtime) 
 
-	v[3] += dt*(-0.5*a*pi*dx + 
+	v[2] += dt*(-0.5*a*pi*dx + 
 				dcoeff3_ds2*z*ds[1] + 
 				dcoeff3_dx*z*dx + 
 				dcoeff3_dy*z*dy + 
