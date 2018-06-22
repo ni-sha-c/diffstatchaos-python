@@ -199,7 +199,7 @@ def divGradfs(u,s):
 		dgf += tmp_matrix[i,:]
 
 	
-	return dgf
+	return dgf.T
 	
 
 

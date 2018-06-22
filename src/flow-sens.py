@@ -20,7 +20,7 @@ if __name__ == "__main__":
 
 
 
-n_steps = 20000
+n_steps = 200000
 n_runup = 50000
 u = zeros((d,n_steps))
 u0 = rand(d)
@@ -40,7 +40,7 @@ w0[:,n_steps-1] = rand(d)
 w0[:,n_steps-1] /= norm(w0[:,n_steps-1])
 
 v = zeros(d)
-w = zeros(d)
+w_inv = zeros(d)
 
 for i in arange(1,n_steps):
 	v0[:,i] = tangent_step(v0[:,i-1],u[:,i-1],s0,ds0)
@@ -53,7 +53,11 @@ for i in arange(n_steps-1,0,-1):
 
 
 for i in arange(1,n_steps-1):
-	dfds = DfDs(u[:,i],s0)[:,0]
-	dfds,_= decompose_tangent(dfds,v0[:,i+1],w0[:,i+1])
-	v = tangent_step(v,u[:,i],s0,ds0) + dfds*dt
+	source_tangent = DfDs(u[:,i],s0)[:,0]
+	source_adjoint = divGradfs(u[:,i],s0)
+	v = tangent_step(v,u[:,i],s0,ds0) + source_tangent*dt
+	v,_= decompose_tangent(v,v0[:,i+1],w0[:,i+1])
+	w_inv = adjoint_step(w_inv,u[:,i],s0,dJ0) + source_adjoint*dt
+	w_inv,_= decompose_adjoint(w_inv,v0[:,i+1],w0[:,i+1])
+	
 
