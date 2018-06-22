@@ -69,8 +69,8 @@ def objective(u,s,theta0,dtheta,phi0,dphi):
 
 	pfrac = (phi-phi0)/dphi
 	tfrac = (theta-theta0)/dtheta
-	obj1 = max(0.0, min(1.0+pfrac,1.0-pfrac))*
-		max(0.0, min(1.0+tfrac,1.0-tfrac))
+	obj1 = (max(0.0, min(1.0+pfrac,1.0-pfrac))*
+		max(0.0, min(1.0+tfrac,1.0-tfrac)))
 	
 
 	return obj1
