@@ -47,6 +47,34 @@ def Step(u0,s,n):
         
     return u
 
+def objective(u,s,theta0,dtheta,phi0,dphi):
+
+	r = sqrt(u[0]**2.0 + u[1]**2.0 + u[2]**2.0)
+	theta = arccos(u[2]/r)
+	phi = arctan2(u[0],u[1])
+
+	if(phi0 < dphi):
+		phi = (phi + dphi)%(2*pi) - dphi
+	
+	if(phi0 > 2*pi - dphi):
+		phi = (phi + 2*pi - dphi)%(2*pi) + dphi
+
+	phifrac = (phi-phi0)/dphi
+
+	if(theta0 < dtheta):
+		theta = (theta + dtheta)%(pi) - dtheta
+	
+	if(theta0 > pi - dtheta):
+		theta = (theta + pi - dtheta)%(pi) + dtheta
+
+	pfrac = (phi-phi0)/dphi
+	tfrac = (theta-theta0)/dtheta
+	obj1 = max(0.0, min(1.0+pfrac,1.0-pfrac))*
+		max(0.0, min(1.0+tfrac,1.0-tfrac))
+	
+
+	return obj1
+
 
 def convert_to_spherical(u):
     x = u[0]	

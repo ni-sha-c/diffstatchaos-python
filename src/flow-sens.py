@@ -60,4 +60,5 @@ for i in arange(1,n_steps-1):
 	w_inv = adjoint_step(w_inv,u[:,i],s0,dJ0) + source_adjoint*dt
 	w_inv,_= decompose_adjoint(w_inv,v0[:,i+1],w0[:,i+1])
 	
+	
 
