@@ -20,7 +20,7 @@ if __name__ == "__main__":
 
 
 
-n_steps = 100000
+n_steps = 100
 n_runup = 10000
 n_bins_theta = 20
 n_bins_phi = 20

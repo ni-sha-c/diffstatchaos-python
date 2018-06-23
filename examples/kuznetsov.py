@@ -76,7 +76,7 @@ def objective(u,s,theta0,dtheta,phi0,dphi):
 
 	return obj1
 
-def Dobjective(u,s,theta,dtheta,phi,dphi)
+def Dobjective(u,s,theta0,dtheta,phi0,dphi):
 
 	res = zeros(d)
 	x = u[0]
@@ -84,15 +84,16 @@ def Dobjective(u,s,theta,dtheta,phi,dphi)
 	z = u[2]
 	t = u[3]
 	r2 = x**2.0 + y**2.0 + z**2.0
-	ru = sqrt(r2)
+	r = sqrt(r2)
 	phi = arctan2(y,x)
 	phi += pi
 	phi0 += pi
+	theta = arccos(z/r)
 	if(phi0 < dphi):
 		phi = (phi + dphi)%(2*pi) - dphi
 
-	if(phi > 2*pi - dphi):
-		phi = (phiu + 2*pi - dphi)%(2*pi) + dphi
+	if(phi0 > 2*pi - dphi):
+		phi = (phi + 2*pi - dphi)%(2*pi) + dphi
 
 	if(theta0 < dtheta):
 		theta = (theta + dtheta)%(pi) - dtheta
@@ -107,26 +108,35 @@ def Dobjective(u,s,theta,dtheta,phi,dphi)
 
 	hattheta = max(0.0, min(tfrac + 1, -tfrac + 1))
 	hatphi = max(0.0, min(pfrac + 1, -pfrac + 1))
-	ddru =  max(-1.0,min(rmru/dr,-rmru/dr))
-	ddphi =  max(-1.0,min(phimphiu/dphi,-phimphiu/dphi))
-	sgnr = 0.
-	sgnphi = 0.
-	if(ddru > -1.0)
-		sgnr = -ddru*rmru/abs(ddru*rmru)/dr
-	end
-	if(ddphi > -1.0)
-		sgnphi = -ddphi*phimphiu/abs(ddphiu*phimphiu)/dphi
-	end
-	
-	
+	ddtheta = 0.0
+	ddphi = 0.0
+		
+	if (hattheta > 0.0) and (theta > theta0):
+		ddtheta = -1.0/dtheta
+	if (hattheta > 0.0) and (theta < theta0):
+		ddtheta = 1.0/dtheta
+ 	if (hatphi > 0.0) and  (phi > phi0):
+		ddphi = -1.0/dphi
+	if (hattheta > 0.0) and (theta < theta0):
+		ddphi = 1.0/dphi
 
-	res[1] = sgnr*x/ru*hatt - sgnt*y/r2*hatr
-	res[2] = sgnr*y/ru*hatt + sgnt*x/r2*hatr
+	sphi = y/sqrt(x**2.0 + y**2.0)
+	cphi = x/sqrt(x**2.0 + y**2.0)
+	ct = z/r
+	st = 1 - ct*ct
+	dthetadx = cphi*ct/r
+	dthetady = sphi*ct/r
+	dthetadz = -st/r
+
+	dphidx = -sphi/r/st
+	dphidy = cphi/r/st
+	dphidz = 0.0
+
+	res[0] = hatphi*ddtheta*dthetadx + hattheta*ddphi*dphidx
+	res[1] = hatphi*ddtheta*dthetady + hattheta*ddphi*dphidy
+	res[2] = hatphi*ddtheta*dthetadz + hattheta*ddphi*dphidz
 	
-
-
 	return res
-
 
 
 def convert_to_spherical(u):
