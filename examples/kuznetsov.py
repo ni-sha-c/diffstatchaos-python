@@ -48,95 +48,94 @@ def Step(u0,s,n):
     return u
 
 def objective(u,s,theta0,dtheta,phi0,dphi):
-
-	r = sqrt(u[0]**2.0 + u[1]**2.0 + u[2]**2.0)
-	theta = arccos(u[2]/r)
-	phi = arctan2(u[1],u[0])
-	phi += pi
-	phi0 += pi
-	if(phi0 < dphi):
-		phi = (phi + dphi)%(2*pi) - dphi
-	
-	if(phi0 > 2*pi - dphi):
-		phi = (phi + 2*pi - dphi)%(2*pi) + dphi
-
-	phifrac = (phi-phi0)/dphi
-
-	if(theta0 < dtheta):
-		theta = (theta + dtheta)%(pi) - dtheta
-	
-	if(theta0 > pi - dtheta):
-		theta = (theta + pi - dtheta)%(pi) + dtheta
-
-	pfrac = (phi-phi0)/dphi
-	tfrac = (theta-theta0)/dtheta
-	obj1 = (max(0.0, min(1.0+pfrac,1.0-pfrac))*
-		max(0.0, min(1.0+tfrac,1.0-tfrac)))
-	
-
-	return obj1
+    r = sqrt(u[0]**2.0 + u[1]**2.0 + u[2]**2.0)
+    theta = 0.0
+    if(r > 0):
+        theta = arccos(u[2]/r)
+    phi = arctan2(u[1],u[0])
+    phi += pi
+    phi0 += pi
+    if(phi0 < dphi):
+        phi = (phi + dphi)%(2*pi) - dphi
+    if(phi0 > 2*pi - dphi):
+        phi = (phi + 2*pi - dphi)%(2*pi) + dphi
+    phifrac = (phi-phi0)/dphi
+    if(theta0 < dtheta):
+        theta = (theta + dtheta)%(pi) - dtheta
+    if(theta0 > pi - dtheta):
+        theta = (theta + pi - dtheta)%(pi) + dtheta
+    pfrac = (phi-phi0)/dphi
+    tfrac = (theta-theta0)/dtheta
+    obj1 = (max(0.0, min(1.0+pfrac,1.0-pfrac))*
+            max(0.0, min(1.0+tfrac,1.0-tfrac)))
+    return obj1
 
 def Dobjective(u,s,theta0,dtheta,phi0,dphi):
 
-	res = zeros(d)
-	x = u[0]
-	y = u[1]
-	z = u[2]
-	t = u[3]
-	r2 = x**2.0 + y**2.0 + z**2.0
-	r = sqrt(r2)
-	phi = arctan2(y,x)
-	phi += pi
-	phi0 += pi
-	theta = arccos(z/r)
-	if(phi0 < dphi):
-		phi = (phi + dphi)%(2*pi) - dphi
+    res = zeros(d)
+    x = u[0]
+    y = u[1]
+    z = u[2]
+    t = u[3]
+    r2 = x**2.0 + y**2.0 + z**2.0
+    r = sqrt(r2)
+    phi = arctan2(y,x)
+    phi += pi
+    phi0 += pi
+    theta = 0.0
+    if(r > 0.0):
+        theta = arccos(z/r)
+    if(phi0 < dphi):
+        phi = (phi + dphi)%(2*pi) - dphi
+    if(phi0 > 2*pi - dphi):
+        phi = (phi + 2*pi - dphi)%(2*pi) + dphi
+    if(theta0 < dtheta):
+        theta = (theta + dtheta)%(pi) - dtheta
+    if(theta0 > pi - dtheta):
+        theta = (theta + pi - dtheta)%pi + dtheta
 
-	if(phi0 > 2*pi - dphi):
-		phi = (phi + 2*pi - dphi)%(2*pi) + dphi
+    pfrac = (phi - phi0)/dphi
+    tfrac = (theta - theta0)/dtheta
 
-	if(theta0 < dtheta):
-		theta = (theta + dtheta)%(pi) - dtheta
-	
-	if(theta0 > pi - dtheta):
-		theta = (theta + pi - dtheta)%pi + dtheta
-
-
-
-	pfrac = (phi - phi0)/dphi
-	tfrac = (theta - theta0)/dtheta
-
-	hattheta = max(0.0, min(tfrac + 1, -tfrac + 1))
-	hatphi = max(0.0, min(pfrac + 1, -pfrac + 1))
-	ddtheta = 0.0
-	ddphi = 0.0
+    hattheta = max(0.0, min(tfrac + 1, -tfrac + 1))
+    hatphi = max(0.0, min(pfrac + 1, -pfrac + 1))
+    ddtheta = 0.0
+    ddphi = 0.0
 		
-	if (hattheta > 0.0) and (theta > theta0):
-		ddtheta = -1.0/dtheta
-	if (hattheta > 0.0) and (theta < theta0):
-		ddtheta = 1.0/dtheta
- 	if (hatphi > 0.0) and  (phi > phi0):
-		ddphi = -1.0/dphi
-	if (hattheta > 0.0) and (theta < theta0):
-		ddphi = 1.0/dphi
+    if (hattheta > 0.0) and (theta > theta0):
+        ddtheta = -1.0/dtheta
+    if (hattheta > 0.0) and (theta < theta0):
+        ddtheta = 1.0/dtheta
+    if (hatphi > 0.0) and  (phi > phi0):
+        ddphi = -1.0/dphi
+    if (hattheta > 0.0) and (theta < theta0):
+        ddphi = 1.0/dphi
+    sphi = 0.0
+    cphi = 1.0
+    if(x**2.0 + y**2.0 > 0.0):
+        sphi = y/sqrt(x**2.0 + y**2.0)
+        cphi = x/sqrt(x**2.0 + y**2.0)
+    ct = 1.0
+    if(r > 0.0):
+        ct = z/r
+    st = sqrt(1 - ct*ct)
+    dthetadx = dthetady = dthetadz = 0.0
+    dphidx = dphidy = dphidz = 0.0
+    if (r > 0.0) and (ct != 0.0):
+        dthetadx = cphi*ct/r
+        dthetady = sphi*ct/r
+        dthetadz = -st/r
 
-	sphi = y/sqrt(x**2.0 + y**2.0)
-	cphi = x/sqrt(x**2.0 + y**2.0)
-	ct = z/r
-	st = 1 - ct*ct
-	dthetadx = cphi*ct/r
-	dthetady = sphi*ct/r
-	dthetadz = -st/r
+    if (r > 0.0) and (st != 0.0):
+        dphidx = -sphi/r/st
+        dphidy = cphi/r/st
+        dphidz = 0.0
 
-	dphidx = -sphi/r/st
-	dphidy = cphi/r/st
-	dphidz = 0.0
-
-	res[0] = hatphi*ddtheta*dthetadx + hattheta*ddphi*dphidx
-	res[1] = hatphi*ddtheta*dthetady + hattheta*ddphi*dphidy
-	res[2] = hatphi*ddtheta*dthetadz + hattheta*ddphi*dphidz
+    res[0] = hatphi*ddtheta*dthetadx + hattheta*ddphi*dphidx
+    res[1] = hatphi*ddtheta*dthetady + hattheta*ddphi*dphidy
+    res[2] = hatphi*ddtheta*dthetadz + hattheta*ddphi*dphidz
 	
-	return res
+    return res
 
 
 def convert_to_spherical(u):

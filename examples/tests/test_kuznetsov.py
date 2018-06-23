@@ -107,54 +107,51 @@ def test_tangent():
 
 
 def test_jacobian():
+    u0 = rand(d)
+    u0[3] *= T
+    epsi = 1.e-8
+    Jacu = zeros((d,d))
+    Jacu[:,0] = ((Step(u0 + epsi*array([1.0,0.0,0.0,0.0]),s0,1) - 
+    			Step(u0 - epsi*array([1.0,0.0,0.0,0.0]),s0,1))/
+    			(2.0*epsi))
+
+    Jacu[:,1] = ((Step(u0 + epsi*array([0.0,1.0,0.0,0.0]),s0,1) - 
+    			Step(u0 - epsi*array([0.0,1.0,0.0,0.0]),s0,1))/
+    			(2.0*epsi))
+
+    Jacu[:,2] = ((Step(u0 + epsi*array([0.0,0.0,1.0,0.0]),s0,1) - 
+    			Step(u0 - epsi*array([0.0,0.0,1.0,0.0]),s0,1))/
+    			(2.0*epsi))
+
+    Jacu[:,3] = ((Step(u0 + epsi*array([0.0,0.0,0.0,1.0]),s0,1) - 
+    			Step(u0 - epsi*array([0.0,0.0,0.0,1.0]),s0,1))/
+    			(2.0*epsi))
+
+    dFds1 = (Step(u0,s0 + epsi*array([1.0,0.0]),1)-Step(u0,s0
+    		- epsi*array([1.0,0.0]),1))/(2.0*epsi)	
 
 
-	u0 = rand(d)
-	u0[3] *= T
-	epsi = 1.e-8
-	Jacu = zeros((d,d))
-	Jacu[:,0] = ((Step(u0 + epsi*array([1.0,0.0,0.0,0.0]),s0,1) - 
-				Step(u0 - epsi*array([1.0,0.0,0.0,0.0]),s0,1))/
-				(2.0*epsi))
+    dFds2 = (Step(u0,s0 + epsi*array([0.0,1.0]),1)-Step(u0,s0
+    		- epsi*array([0.0,1.0]),1))/(2.0*epsi)	
 
-  	Jacu[:,1] = ((Step(u0 + epsi*array([0.0,1.0,0.0,0.0]),s0,1) - 
-				Step(u0 - epsi*array([0.0,1.0,0.0,0.0]),s0,1))/
-				(2.0*epsi))
-
-	Jacu[:,2] = ((Step(u0 + epsi*array([0.0,0.0,1.0,0.0]),s0,1) - 
-				Step(u0 - epsi*array([0.0,0.0,1.0,0.0]),s0,1))/
-				(2.0*epsi))
-
-	Jacu[:,3] = ((Step(u0 + epsi*array([0.0,0.0,0.0,1.0]),s0,1) - 
-				Step(u0 - epsi*array([0.0,0.0,0.0,1.0]),s0,1))/
-				(2.0*epsi))
-
-	dFds1 = (Step(u0,s0 + epsi*array([1.0,0.0]),1)-Step(u0,s0
-			- epsi*array([1.0,0.0]),1))/(2.0*epsi)	
-
-
-	dFds2 = (Step(u0,s0 + epsi*array([0.0,1.0]),1)-Step(u0,s0
-			- epsi*array([0.0,1.0]),1))/(2.0*epsi)	
-
-
-	Jacana = dt*gradfs(u0,s0) + eye(d,d)
-	print(norm(Jacu-Jacana))
-	print(Jacu)
+    Jacana = dt*gradfs(u0,s0) + eye(d,d)
+    print(norm(Jacu-Jacana))
+    print(Jacu)
 	
-	v0 = rand(4)
-	v0_fd = dot(Jacu,v0) 
-	print(v0_fd)
-	v0_hand = tangent_step(v0,u0,s0,zeros(2))
-	print(norm(v0_fd - v0_hand))
+    v0 = rand(4)
+    v0_fd = dot(Jacu,v0) 
+    print(v0_fd)
+    v0_hand = tangent_step(v0,u0,s0,zeros(2))
+    print(norm(v0_fd - v0_hand))
 
 
-	v1_fd = v0_fd + dFds1 
-	v1_hand = tangent_step(v0,u0,s0,[1.0,0.0])
-	print(norm(v1_fd - v1_hand))
+    v1_fd = v0_fd + dFds1 
+    v1_hand = tangent_step(v0,u0,s0,[1.0,0.0])
+    print(norm(v1_fd - v1_hand))
 
-	v2_fd = v0_fd + dFds2 
-	v2_hand = tangent_step(v0,u0,s0,[0.0,1.0])
-	print(norm(v2_fd - v2_hand))
+    v2_fd = v0_fd + dFds2 
+    v2_hand = tangent_step(v0,u0,s0,[0.0,1.0])
+    print(norm(v2_fd - v2_hand))
 
 
 
@@ -197,3 +194,56 @@ def test_tangentadjoint():
 	print(dot(v0,y0))	
 
 
+def test_objective():
+#if __name__=="__main__":
+    nsamples = 10000
+    u = rand(d,nsamples)*2.0 + -1.0
+    u[3,:] = rand(nsamples)*T
+    ntheta = 20
+    nphi = 20
+    dtheta = pi/(ntheta-1)
+    dphi = 2*pi/(nphi-1)
+    theta_bin_centers = linspace(dtheta/2.0,pi-dtheta/2.0,ntheta)
+    phi_bin_centers = linspace(-pi+dphi/2,pi-dphi/2.,nphi)
+    J = zeros((ntheta,nphi))
+    #for k in arange(nsamples):
+       # for i in arange(ntheta):
+        #    for j in arange(nphi):
+         #       J[i,j] += objective(u[:,k],s0,theta_bin_centers[i],dtheta,
+          #                  phi_bin_centers[j],dphi)/nsamples
+
+  #  contourf(phi_bin_centers,theta_bin_centers,J)
+   # colorbar()
+    N = 500
+    theta_grid = linspace(0.,pi,N)
+    phi_grid = linspace(-pi,pi,N)
+    r_grid = linspace(0.0,1.0,N)
+    st_grid = sin(theta_grid)
+    ct_grid = cos(theta_grid)
+    sp_grid = sin(phi_grid)
+    cp_grid = cos(phi_grid)
+
+    x_grid = r_grid*st_grid*cp_grid
+    y_grid = r_grid*st_grid*sp_grid
+    z_grid = r_grid*ct_grid
+    J1 = zeros(N)
+    J2 = zeros(N)
+    dJ1 = zeros((d,N))
+    dJ2 = zeros((d,N))
+    dJ1dphi = zeros(N)
+    for i in arange(N):
+        u_grid = array([x_grid[i],y_grid[i],z_grid[i],2.0])
+        dxdphi = r_grid[i]*st_grid[i]*(-sp_grid[i])
+        dydphi = r_grid[i]*st_grid[i]*cp_grid[i]
+        J1[i] = objective(u_grid,s0,dtheta/2.0,dtheta,-pi+dphi/2.0,dphi)
+        J2[i] = objective(u_grid,s0,pi-dtheta/2.0,dtheta,pi-dphi/2.0,dphi)
+        dJ1[:,i] = Dobjective(u_grid,s0,dtheta/2.0,dtheta,-pi+dphi/2.0,dphi)
+        dJ1dphi[i] = dJ1[0,i]*dxdphi + dJ1[1,i]*dydphi
+        dJ2[:,i] = Dobjective(u_grid,s0,pi-dtheta/2.0,dtheta,pi-dphi/2.0,dphi)
+
+    plot(theta_grid,J1,"o-",theta_grid,J2,"o-")
+    figure()
+    plot(theta_grid,norm(dJ1,axis=0),"o-",theta_grid,norm(dJ2,axis=0),"o-")
+    figure()
+    plot(phi_grid,dJ1dphi,"o-")
+    show()
