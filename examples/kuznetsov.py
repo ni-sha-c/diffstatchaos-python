@@ -292,6 +292,18 @@ def divGradfs(u,s):
 	return dgf.T
 	
 
+def divDfDs(u,s):
+
+    epsi = 1.e-8
+    dpfps = zeros(p)
+    v = zeros(d)
+    for i in range(d):
+        v = zeros(d)
+        v[i] = 1.0
+        dpfps += ((DfDs(u + epsi*v,s) - 
+            DfDs(u - epsi*v,s))[i,:])/(2.0*epsi)
+    return dpfps
+
 
 
 def tangent_step(v0,u,s,ds):
