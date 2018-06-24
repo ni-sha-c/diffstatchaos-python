@@ -12,7 +12,7 @@ from numpy import *
 from time import time
 from util import *
 
-n_steps = int(T / dt) * 100000
+n_steps = int(T / dt) * 1000
 n_runup = int(T / dt) * 100
 n_bins_theta = 20
 n_bins_phi = 20

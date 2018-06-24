@@ -2,7 +2,7 @@ from pylab import *
 from numpy import *
 from numba import jit
 
-dt = 5.e-2
+dt = 1.e-2
 s0 = array([1.0,1.0])
 T = 6.0
 boundaries = array([[-1, 1],
@@ -28,13 +28,13 @@ def primal_step(u0,s,n=1):
 
         coeff1 = sigma*pi*0.5*(z*sqrt(2) + 1)
         coeff2 = s[0]*(1. - sigma*sigma - a*a)
-        coeff3 = s[0]*a*a*(1.0 - r)
+        coeff3 = s[1]*a*a*(1.0 - r)
 
-        u[0] += dt*(-1.0*coeff1*y -
+        u[0] += dt*(-coeff1*y -
                         coeff2*x*y*y +
                         0.5*a*pi*z + coeff3*x)
 
-        u[1] += dt*(coeff1*0.5*x +
+        u[1] += dt*(coeff1*x +
                         coeff2*y*x*x +
                         coeff3*y)
 
@@ -389,9 +389,17 @@ def rot_freq(t):
     c0 = 2.0
     c1 = 3.0
     c2 = 5.0
-    c3 = 6.0 
+    c3 = 6.0
     c4 = 0.0
 
+    '''
+    if t > c0 and t < c1:
+        return -1
+    elif t > c2 and t < c3:
+        return 1
+    else:
+        return 0
+    '''
     slope = 20.0
     est = exp(slope*t)
     esc0 = exp(slope*c0)
@@ -410,9 +418,6 @@ def rot_freq(t):
 
 
 
-
-
-
 @jit(nopython=True)
 def diff_rot_freq(t):
     a0 = -1.0
@@ -422,6 +427,15 @@ def diff_rot_freq(t):
     c1 = 2.0
     c2 = 4.0
     c3 = 5.0 
+
+    '''
+    if t > c0 and t < c1:
+        return -1
+    elif t > c2 and t < c3:
+        return 1
+    else:
+        return 0
+    '''
 
     slope = 20.0
     est = exp(slope*t)
