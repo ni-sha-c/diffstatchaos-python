@@ -1,50 +1,46 @@
 from pylab import *
 from numpy import *
+from numba import jit
 
 dt = 5.e-2
-s0 = [1.0,1.0]
-d = 4
-p = 2
-boundaries = ones(2*d)
-boundaries[0] = -1.0
-boundaries[1] = -1.0
-boundaries[2] = -1.0
-boundaries[3] = 0.0
+s0 = array([1.0,1.0])
 T = 6.0
-boundaries[7] = T
+boundaries = array([[-1, 1],
+                    [-1, 1],
+                    [-1, 1],
+                    [0, T]]).T
+state_dim = boundaries.shape[1]
 n_poincare = int(ceil(T/dt))
 
-def Step(u0,s,n):
+@jit(nopython=True)
+def primal_step(u0,s,n=1):
+    state_dim= u0.size
+    param_dim= s.size
     u = copy(u0)
     for i in arange(n):
         x = u[0]
         y = u[1]
         z = u[2]
-        r2 = x**2.0 + y**2.0 + z**2.0	
+        r2 = x**2.0 + y**2.0 + z**2.0
         r = sqrt(r2)
-        
         sigma = diff_rot_freq(u[3])
-        a = rot_freq(u[3])		
+        a = rot_freq(u[3])
 
         coeff1 = sigma*pi*0.5*(z*sqrt(2) + 1)
         coeff2 = s[0]*(1. - sigma*sigma - a*a)
-        coeff3 = s[0]*a*a*(1.0 - r)		
+        coeff3 = s[0]*a*a*(1.0 - r)
 
-        u[0] += dt*(-1.0*coeff1*y - 
-                        coeff2*x*y*y + 
+        u[0] += dt*(-1.0*coeff1*y -
+                        coeff2*x*y*y +
                         0.5*a*pi*z + coeff3*x)
 
-        u[1] += dt*(coeff1*0.5*x + 
-                        coeff2*y*x*x + 
+        u[1] += dt*(coeff1*0.5*x +
+                        coeff2*y*x*x +
                         coeff3*y)
 
         u[2] += dt*(-0.5*a*pi*x + coeff3*z)
 
         u[3] = (u[3] + dt)%T
-
-	 
-
-        
     return u
 
 def objective(u,s,theta0,dtheta,phi0,dphi):
@@ -101,7 +97,6 @@ def Dobjective(u,s,theta0,dtheta,phi0,dphi):
     hatphi = max(0.0, min(pfrac + 1, -pfrac + 1))
     ddtheta = 0.0
     ddphi = 0.0
-		
     if (hattheta > 0.0) and (theta > theta0):
         ddtheta = -1.0/dtheta
     if (hattheta > 0.0) and (theta < theta0):
@@ -134,23 +129,19 @@ def Dobjective(u,s,theta0,dtheta,phi0,dphi):
     res[0] = hatphi*ddtheta*dthetadx + hattheta*ddphi*dphidx
     res[1] = hatphi*ddtheta*dthetady + hattheta*ddphi*dphidy
     res[2] = hatphi*ddtheta*dthetadz + hattheta*ddphi*dphidz
-	
     return res
 
-
 def convert_to_spherical(u):
-    x = u[0]	
-    y = u[1]	
+    x = u[0]
+    y = u[1]
     z = u[2]
     r = sqrt(x**2 + y**2 + z**2)
     theta = arccos(z/r)
-    phi = arctan2(y,x)	
+    phi = arctan2(y,x)
     return r,theta,phi
 
 
-
 def stereographic_projection(u):
-
     x = u[0]
     y = u[1]
     z = u[2]
@@ -163,7 +154,6 @@ def stereographic_projection(u):
 
 
 def tangent_source(v0, u, s, ds):
-
     v = copy(v0)
     x = u[0]
     y = u[1]
@@ -305,7 +295,7 @@ def divDfDs(u,s):
     return dpfps
 
 
-
+@jit(nopython=True)
 def tangent_step(v0,u,s,ds):
 
 	x = u[0]
@@ -390,6 +380,7 @@ def tangent_step(v0,u,s,ds):
 
 
 
+@jit(nopython=True)
 def rot_freq(t): 
     a0 = -1.0
     a1 = 0.0
@@ -422,6 +413,7 @@ def rot_freq(t):
 
 
 
+@jit(nopython=True)
 def diff_rot_freq(t):
     a0 = -1.0
     a1 = 0.0
@@ -446,6 +438,7 @@ def diff_rot_freq(t):
     return fn0 + fn1 + fn2 + fn3
 
 
+@jit(nopython=True)
 def ddiff_rot_freq_dt(t):
 
     a0 = -1.0
@@ -475,6 +468,7 @@ def ddiff_rot_freq_dt(t):
 
 
 
+@jit(nopython=True)
 def drot_freq_dt(t):
     
     a0 = -1.0

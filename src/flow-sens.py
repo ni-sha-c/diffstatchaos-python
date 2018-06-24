@@ -12,48 +12,66 @@ from numpy import *
 from time import time
 from util import *
 
-n_steps = 100
+n_steps = int(T / dt) * 100000
 n_runup = 10000
 n_bins_theta = 20
 n_bins_phi = 20
 dtheta = pi/n_bins_theta
 dphi = 2*pi/n_bins_phi
-u = zeros((d,n_steps))
+u = zeros((state_dim,n_steps))
 random.seed(0)
-u0 = rand(d)
+u0 = rand(state_dim)
 u0[3] *= T
-u0 = Step(u0,s0,n_runup)
+u0 = primal_step(u0,s0,n_runup)
 u[:,0] = copy(u0)
 
-ds0 = zeros(p)
-dJ0 = zeros(d)
+ds0 = zeros(s0.size)
+dJ0 = zeros(state_dim)
 
-v0 = zeros((d,n_steps))
-w0 = zeros((d,n_steps))
-
-v0[:,0] = rand(d)
-v0[:,0] /= norm(v0[:,0])
-w0[:,n_steps-1] = rand(d)
+w0 = zeros((state_dim,n_steps))
+w0[:,n_steps-1] = rand(state_dim)
 w0[:,n_steps-1] /= norm(w0[:,n_steps-1])
+
+v0_init = rand(state_dim)
+v0_init /= linalg.norm(v0_init)
 
 J_theta_phi = zeros((n_bins_theta,n_bins_phi))
 theta_bin_centers = linspace(dtheta/2.0,pi - dtheta/2.0, n_bins_theta)
 phi_bin_centers = linspace(-pi-dphi/2.0,pi - dphi/2.0, n_bins_phi)
-t_ind = -1
-p_ind = -1
-v = zeros(d)
-w_inv = zeros(d)
-dfds = zeros((d,p,n_steps))
-divdfds = zeros((p,n_steps))
+param_dim = s0.size
+v = zeros(state_dim)
+w_inv = zeros(state_dim)
+dfds = zeros((state_dim,param_dim,n_steps))
+divdfds = zeros((param_dim,n_steps))
 dJds_stable = zeros((n_bins_theta,n_bins_phi))
 dJds_unstable = zeros((n_bins_theta,n_bins_phi))
 
-# inputs: u[:,0], s0, ds0, v0[:,0]
-for i in arange(1,n_steps):
-    v0[:,i] = tangent_step(v0[:,i-1],u[:,i-1],s0,ds0)
-    v0[:,i] /= norm(v0[:,i])
-    u[:,i] = Step(u[:,i-1],s0,1)
+@jit(nopython=True)
+def solve_primal(u_init, n_steps, s):
+    u = empty((n_steps + 1, u_init.size))
+    u[0] = u_init
+    for i in arange(1,n_steps):
+        u[i] = primal_step(u[i-1],s)
+    return u
 
+@jit(nopython=True)
+def solve_tangent(u, v_init, n_steps, s, ds):
+    v = empty((n_steps + 1, v_init.size))
+    v[0] = v_init
+    for i in arange(1,n_steps):
+        v[i] = tangent_step(v[i-1],u[i-1],s,ds)
+        v[i] /= linalg.norm(v[i])
+    return v
+
+t0 = time()
+u = solve_primal(u0, n_steps, s0)
+t1 = time()
+v0 = solve_tangent(u, v0_init, n_steps, s0, ds0)
+t2 = time()
+
+print(n_steps, t1 - t0, t2 - t1)
+
+'''
 for i in arange(1,n_steps):
     dfds[:,:,i] = DfDs(u[:,i-1],s0)
 
@@ -70,8 +88,6 @@ for i in arange(n_steps-1,0,-1):
 for i in arange(1,n_steps):
     divdfds[:,i] = divDfDs(u[:,i-1],s0)
 
-
-'''
 for i in arange(1,n_steps-1):
     source_tangent = DfDs(u[:,i],s0)[:,0]
     source_adjoint = divGradfs(u[:,i],s0)
@@ -91,8 +107,8 @@ for i in arange(1,n_steps-1):
 
 
 n_samples = 100000
-um = rand(d)*2.0 - 1.0
-up = rand(d)*2.0 - 1.0
+um = rand(state_dim)*2.0 - 1.0
+up = rand(state_dim)*2.0 - 1.0
 sm = copy(s0)
 sp = copy(s0)
 sm[0] -= epsi
