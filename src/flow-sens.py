@@ -3,6 +3,7 @@
 from __future__ import division
 from __future__ import print_function
 import sys
+import pdb
 
 sys.path.insert(0, '../examples/')
 from kuznetsov import *
@@ -65,16 +66,32 @@ def solve_tangent(u, v_init, n_steps, s, ds):
 t0 = time()
 u = solve_primal(u_init, n_steps, s0)
 t1 = time()
-#v0 = solve_tangent(u, v0_init, n_steps, s0, ds0)
+v0 = solve_tangent(u, v0_init, n_steps, s0, ds0)
 t2 = time()
 
 print(n_steps, t1 - t0, t2 - t1)
 
-def visualize(u):
+def visualize_primal(u):
     stero_real, stero_imag = stereographic_projection(u.T)
     plot(stero_real, stero_imag, '.', ms=1)
 
-visualize(u[::int(T/dt)])
+def extrapolate(a0, a1, multiplier):
+    return a0 + (a1 - a0) * multiplier
+
+def visualize_tangent(u, v):
+    EPS = 1E-8
+    u_plus, u_minus = u + v * EPS, u - v * EPS
+    stero_real, stero_imag = stereographic_projection(u.T)
+    stero_real_plus, stero_imag_plus = stereographic_projection(u_plus.T)
+    stero_real_minus, stero_imag_minus = stereographic_projection(u_minus.T)
+    stero_real_plus = extrapolate(stero_real, stero_real_plus, 1E6)
+    stero_real_minus = extrapolate(stero_real, stero_real_minus, 1E6)
+    stero_imag_plus = extrapolate(stero_imag, stero_imag_plus, 1E6)
+    stero_imag_minus = extrapolate(stero_imag, stero_imag_minus, 1E6)
+    plot([stero_real_plus, stero_real_minus],
+         [stero_imag_plus, stero_imag_minus], '-k', ms=1)
+
+visualize_tangent(u[::int(T/dt)], v0[::int(T/dt)])
 
 
 '''

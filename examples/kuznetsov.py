@@ -68,7 +68,7 @@ def objective(u,s,theta0,dtheta,phi0,dphi):
 
 def Dobjective(u,s,theta0,dtheta,phi0,dphi):
 
-    res = zeros(d)
+    res = zeros(state_dim)
     x = u[0]
     y = u[1]
     z = u[2]
@@ -222,7 +222,7 @@ def gradfs(u,s):
 	dcoeff3_dy = s[1]*a*a*(-y)/r
 	dcoeff3_dz = s[1]*a*a*(-z)/r
 			
-	dFdu = zeros((d,d))
+	dFdu = zeros((state_dim,state_dim))
 
 	dFdu[0,0] = (-coeff2*y*y +
 				 coeff3 + dcoeff3_dx*x)
