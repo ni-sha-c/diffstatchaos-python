@@ -351,8 +351,8 @@ def tangent_step(v0,u,s,ds):
 				0.5*da_dt*pi*z*dtime + 
 				dcoeff3_dt*x*dtime)
 
-	v[1] += dt*(coeff1*0.5*dx + 
-				dcoeff1_dz*0.5*x*dz + 
+	v[1] += dt*(coeff1*dx + 
+				dcoeff1_dz*x*dz + 
 				dcoeff2_ds1*y*x*x*ds[0] + 
 				coeff2*dy*x*x + 
 				coeff2*2.0*x*dx*y + 
@@ -360,7 +360,7 @@ def tangent_step(v0,u,s,ds):
 				dcoeff3_dx*y*dx + 
 				dcoeff3_dy*y*dy +
 		 		dcoeff3_dz*y*dz +
-			 	coeff3*dy + dcoeff1_dt*0.5*x*dtime +
+			 	coeff3*dy + dcoeff1_dt*x*dtime +
 				dcoeff2_dt*y*x*x*dtime + 
 				dcoeff3_dt*y*dtime) 
 

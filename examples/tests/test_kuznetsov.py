@@ -76,12 +76,14 @@ def test_tangent():
         for i in arange(n_testpoints):
                 u0[i] = primal_step(u0[i],s0,n_poincare)        
                 for k in arange(n_epsi):                
-                        u0next = primal_step(u0[i],s0,1)
                         vu_fd[k,i] = (primal_step(u0[i] + epsi[k]*v0,
-                            s0,1)-u0next)/epsi[k]
+                            s0,1)-\
+                            primal_step(u0[i] - epsi[k]*v0,s0,1)\
+                            )/(2.0*epsi[k])
 
                         vs_fd[k,i] = (primal_step(u0[i],s0 + epsi[k]*ds0,1) - 
-                                                u0next)/epsi[k]
+                            primal_step(u0[i],s0 - epsi[k]*ds0,1)) \
+                                    /(2.0*epsi[k])
 
 
                 vu_ana[i] = tangent_step(v0,u0[i],s0,zeros(p))

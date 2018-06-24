@@ -63,17 +63,17 @@ def solve_tangent(u, v_init, n_steps, s, ds):
         v[i] /= linalg.norm(v[i])
     return v
 
-t0 = time()
+#t0 = time()
 u = solve_primal(u_init, n_steps, s0)
-t1 = time()
+#t1 = time()
 v0 = solve_tangent(u, v0_init, n_steps, s0, ds0)
-t2 = time()
+#t2 = time()
 
-print(n_steps, t1 - t0, t2 - t1)
+#print(n_steps, t1 - t0, t2 - t1)
 
 def visualize_primal(u):
-    stero_real, stero_imag = stereographic_projection(u.T)
-    plot(stero_real, stero_imag, '.', ms=1)
+    stereo_real, stereo_imag = stereographic_projection(u.T)
+    plot(stereo_real, stereo_imag, '.', ms=1)
 
 def extrapolate(a0, a1, multiplier):
     return a0 + (a1 - a0) * multiplier
@@ -81,15 +81,15 @@ def extrapolate(a0, a1, multiplier):
 def visualize_tangent(u, v):
     EPS = 1E-8
     u_plus, u_minus = u + v * EPS, u - v * EPS
-    stero_real, stero_imag = stereographic_projection(u.T)
-    stero_real_plus, stero_imag_plus = stereographic_projection(u_plus.T)
-    stero_real_minus, stero_imag_minus = stereographic_projection(u_minus.T)
-    stero_real_plus = extrapolate(stero_real, stero_real_plus, 1E6)
-    stero_real_minus = extrapolate(stero_real, stero_real_minus, 1E6)
-    stero_imag_plus = extrapolate(stero_imag, stero_imag_plus, 1E6)
-    stero_imag_minus = extrapolate(stero_imag, stero_imag_minus, 1E6)
-    plot([stero_real_plus, stero_real_minus],
-         [stero_imag_plus, stero_imag_minus], '-k', ms=1)
+    stereo_real, stereo_imag = stereographic_projection(u.T)
+    stereo_real_plus, stereo_imag_plus = stereographic_projection(u_plus.T)
+    stereo_real_minus, stereo_imag_minus = stereographic_projection(u_minus.T)
+    stereo_real_plus = extrapolate(stereo_real, stereo_real_plus, 1E6)
+    stereo_real_minus = extrapolate(stereo_real, stereo_real_minus, 1E6)
+    stereo_imag_plus = extrapolate(stereo_imag, stereo_imag_plus, 1E6)
+    stereo_imag_minus = extrapolate(stereo_imag, stereo_imag_minus, 1E6)
+    plot([stereo_real_plus, stereo_real_minus],
+         [stereo_imag_plus, stereo_imag_minus], '-k', ms=1)
 
 visualize_tangent(u[::int(T/dt)], v0[::int(T/dt)])
 
