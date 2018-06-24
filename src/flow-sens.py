@@ -79,8 +79,17 @@ for i in arange(1,n_steps-1):
 	v,_= decompose_tangent(v,v0[:,i+1],w0[:,i+1])
 	w_inv = adjoint_step(w_inv,u[:,i],s0,dJ0) + source_adjoint*dt
 	w_inv,_= decompose_adjoint(w_inv,v0[:,i+1],w0[:,i+1])
-
-	#dJ_ds_stable += dot(dJ_theta_phi,v)/n_steps
+        for i1 in arange(n_bins_theta):
+            for j1 in arange(n_bins_phi):
+                theta0 = theta_bin_centers[i1]
+                phi0 = theta_bin_centers[j1]
+                dJ_theta_phi = Dobjective(u[:,i+1],s0,theta0,dtheta,
+                                phi0,dphi)
+                dJds_stable[i1,j1] += dot(dJ_theta_phi,v)/n_samples
+                dJds_unstable[i1,j1] -= J_theta_phi[i1,j1]*(divdfds[i] +
+                        dot(dfds[i],w_inv))
+                
+	
 	
 	
 
