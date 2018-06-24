@@ -13,17 +13,16 @@ from time import time
 from util import *
 
 n_steps = int(T / dt) * 100000
-n_runup = 10000
+n_runup = int(T / dt) * 100
 n_bins_theta = 20
 n_bins_phi = 20
 dtheta = pi/n_bins_theta
 dphi = 2*pi/n_bins_phi
 u = zeros((state_dim,n_steps))
 random.seed(0)
-u0 = rand(state_dim)
-u0[3] *= T
-u0 = primal_step(u0,s0,n_runup)
-u[:,0] = copy(u0)
+u_init = rand(state_dim)
+u_init[3] = 0
+u_init = primal_step(u_init,s0,n_runup)
 
 ds0 = zeros(s0.size)
 dJ0 = zeros(state_dim)
@@ -48,7 +47,7 @@ dJds_unstable = zeros((n_bins_theta,n_bins_phi))
 
 @jit(nopython=True)
 def solve_primal(u_init, n_steps, s):
-    u = empty((n_steps + 1, u_init.size))
+    u = empty((n_steps, u_init.size))
     u[0] = u_init
     for i in arange(1,n_steps):
         u[i] = primal_step(u[i-1],s)
@@ -56,7 +55,7 @@ def solve_primal(u_init, n_steps, s):
 
 @jit(nopython=True)
 def solve_tangent(u, v_init, n_steps, s, ds):
-    v = empty((n_steps + 1, v_init.size))
+    v = empty((n_steps, v_init.size))
     v[0] = v_init
     for i in arange(1,n_steps):
         v[i] = tangent_step(v[i-1],u[i-1],s,ds)
@@ -64,12 +63,19 @@ def solve_tangent(u, v_init, n_steps, s, ds):
     return v
 
 t0 = time()
-u = solve_primal(u0, n_steps, s0)
+u = solve_primal(u_init, n_steps, s0)
 t1 = time()
-v0 = solve_tangent(u, v0_init, n_steps, s0, ds0)
+#v0 = solve_tangent(u, v0_init, n_steps, s0, ds0)
 t2 = time()
 
 print(n_steps, t1 - t0, t2 - t1)
+
+def visualize(u):
+    stero_real, stero_imag = stereographic_projection(u.T)
+    plot(stero_real, stero_imag, '.', ms=1)
+
+visualize(u[::int(T/dt)])
+
 
 '''
 for i in arange(1,n_steps):
