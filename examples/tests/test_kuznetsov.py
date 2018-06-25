@@ -9,57 +9,6 @@ from pylab import *
 from numpy import *
 
 
-def plot_attractor():
-
-        n_testpoints = 5000
-        n_times = 6
-        n_steps = n_poincare*100
-        u0 = rand(state_dim,n_testpoints)
-        u0 = (u0.T*(boundaries[state_dim:2*state_dim]-boundaries[0:state_dim])).T
-        u0 = (u0.T + boundaries[0:state_dim]).T
-        u = zeros((state_dim,n_testpoints,n_times))
-        for j in arange(n_times):
-                u[:,:,j] = copy(u0)
-        subplot(331)
-        plot(u0[0,:],u0[1,:],"o")
-        for i in arange(n_testpoints):
-                u[:,i,1] = primal_step(u[:,i,1],s0,n_steps)
-                for n in arange(1,n_times):
-                        u[:,i,n] = primal_step(u[:,i,n-1],s0,n_steps)
-        
-        subplot(332)
-        plot(u[0,:,1],u[1,:,1],"o")
-                
-        subplot(333)
-        plot(u[0,:,2],u[1,:,2],"o")
-
-        subplot(334)
-        plot(u[0,:,3],u[1,:,3],"o")
-
-        subplot(335)
-        plot(u[0,:,4],u[1,:,4],"o")
-                
-        subplot(336)
-        plot(u[0,:,5],u[1,:,5],"o")
-
-
-        r = zeros(n_testpoints)
-        theta = zeros(n_testpoints)
-        phi = zeros(n_testpoints)
-        x = zeros(n_testpoints)
-        y = zeros(n_testpoints)
-        for i in range(n_testpoints):
-                r[i],theta[i],phi[i] = convert_to_spherical(u[:,i,5]) 
-                x[i],y[i] = stereographic_projection(u[:,i,5])
-        figure()                
-        subplot(121)                
-        plot(phi,theta,"ko")
-        xlim([-pi,pi])
-        ylim([0.,pi])
-        subplot(122)
-        plot(x,y,"ro")
-
-
 def visualize_primal():
     u_init = rand(state_dim)
     u_init[3] = 0.0
@@ -72,6 +21,40 @@ def visualize_primal():
     plot(stereo_real, stereo_imag, '.', ms=1)
     savefig('st_proj_attractor.png')
 
+@jit(nopython=True)
+#if __name__ == "__main__":
+def test_step_primal():
+    holes = array([1./sqrt(2.),0,1./sqrt(2.0),\
+                   -1./sqrt(2.),0,1./sqrt(2.0), \
+                    1./sqrt(2.),0,-1./sqrt(2.0), \
+                    -1./sqrt(2.),0,-1./sqrt(2.0)]) 
+    holes = holes.reshape(4,3)
+
+    flag = 1
+    u_init = rand(state_dim)
+    u_init[3] = 0.0
+    u_init = primal_step(u_init,s0,n_runup)
+    fac = 1000
+    n_steps = int(T/dt)*fac
+    u = solve_primal(u_init,n_steps,s0)
+    for i in range(1,n_steps):
+        if(dot((u[i,:3]-u[i-1,:3])/dt,u[i-1,:3])>1.e-8):
+            break
+    assert(i==n_steps-1)
+            
+    u = u[::int(T/dt)]
+    
+    epsi = 1.e-1
+    for i in range(1,fac):
+        if(not(flag)):
+            break
+        for j in range(4):
+            if(norm(u[i,:3]-holes[j])<epsi):
+                flag = 0
+            if(norm(u[i,:3])>1.0 + epsi):
+                flag = 0
+    assert(i==fac-1)
+    
 def extrapolate(a0, a1, multiplier):
     return a0 + (a1 - a0) * multiplier
 
@@ -88,7 +71,7 @@ def visualize_tangent(u, v):
     plot([stereo_real_plus, stereo_real_minus],
          [stereo_imag_plus, stereo_imag_minus], '-k', ms=1)
 
-visualize_tangent(u[::int(T/dt)], v0[::int(T/dt)])
+#visualize_tangent(u[::int(T/dt)], v0[::int(T/dt)])
 
 
 
