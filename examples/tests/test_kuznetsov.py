@@ -2,21 +2,22 @@ testName="kuznetsov"
 import sys
 sys.path.insert(0, '../')
 from kuznetsov import *
+sys.path.insert(0, '../../src')
+from flow_sens import *
 from matplotlib.pyplot import *
 from pylab import *
 from numpy import *
 
-d, p = 4, 2
 
 def plot_attractor():
 
         n_testpoints = 5000
         n_times = 6
         n_steps = n_poincare*100
-        u0 = rand(d,n_testpoints)
-        u0 = (u0.T*(boundaries[d:2*d]-boundaries[0:d])).T
-        u0 = (u0.T + boundaries[0:d]).T
-        u = zeros((d,n_testpoints,n_times))
+        u0 = rand(state_dim,n_testpoints)
+        u0 = (u0.T*(boundaries[state_dim:2*state_dim]-boundaries[0:state_dim])).T
+        u0 = (u0.T + boundaries[0:state_dim]).T
+        u = zeros((state_dim,n_testpoints,n_times))
         for j in arange(n_times):
                 u[:,:,j] = copy(u0)
         subplot(331)
@@ -59,18 +60,48 @@ def plot_attractor():
         plot(x,y,"ro")
 
 
+def visualize_primal():
+    u_init = rand(state_dim)
+    u_init[3] = 0.0
+    u_init = primal_step(u_init,s0,n_runup)
+    n_steps = int(T/dt)*1000
+    u = solve_primal(u_init,n_steps,s)
+    stereo_real, stereo_imag = stereographic_projection(u.T)
+    plot(stereo_real, stereo_imag, '.', ms=1)
+    savefig('st_proj_attractor.png')
+
+def extrapolate(a0, a1, multiplier):
+    return a0 + (a1 - a0) * multiplier
+
+def visualize_tangent(u, v):
+    EPS = 1E-8
+    u_plus, u_minus = u + v * EPS, u - v * EPS
+    stereo_real, stereo_imag = stereographic_projection(u.T)
+    stereo_real_plus, stereo_imag_plus = stereographic_projection(u_plus.T)
+    stereo_real_minus, stereo_imag_minus = stereographic_projection(u_minus.T)
+    stereo_real_plus = extrapolate(stereo_real, stereo_real_plus, 1E6)
+    stereo_real_minus = extrapolate(stereo_real, stereo_real_minus, 1E6)
+    stereo_imag_plus = extrapolate(stereo_imag, stereo_imag_plus, 1E6)
+    stereo_imag_minus = extrapolate(stereo_imag, stereo_imag_minus, 1E6)
+    plot([stereo_real_plus, stereo_real_minus],
+         [stereo_imag_plus, stereo_imag_minus], '-k', ms=1)
+
+visualize_tangent(u[::int(T/dt)], v0[::int(T/dt)])
+
+
+
 def test_tangent():
 
         n_testpoints = 100
         n_epsi = 8
         
-        u0 = rand(n_testpoints,d)
+        u0 = rand(n_testpoints,state_dim)
         epsi = logspace(-n_epsi,-1.0,n_epsi)
-        vu_fd = zeros((n_epsi,n_testpoints,d))
-        vs_fd = zeros((n_epsi,n_testpoints,d))
-        vu_ana = zeros((n_testpoints,d))
-        vs_ana = zeros((n_testpoints,d))
-        u0next = zeros(d)
+        vu_fd = zeros((n_epsi,n_testpoints,state_dim))
+        vs_fd = zeros((n_epsi,n_testpoints,state_dim))
+        vu_ana = zeros((n_testpoints,state_dim))
+        vs_ana = zeros((n_testpoints,state_dim))
+        u0next = zeros(state_dim)
         v0 = rand(4)
         ds0 = array([1.,1.])
         for i in arange(n_testpoints):
@@ -86,8 +117,8 @@ def test_tangent():
                                     /(2.0*epsi[k])
 
 
-                vu_ana[i] = tangent_step(v0,u0[i],s0,zeros(p))
-                vs_ana[i] = tangent_step(zeros(d),u0[i],s0,ds0)
+                vu_ana[i] = tangent_step(v0,u0[i],s0,zeros(param_dim))
+                vs_ana[i] = tangent_step(zeros(state_dim),u0[i],s0,ds0)
 
         erru = zeros(n_epsi)
         errs = zeros(n_epsi)
@@ -108,10 +139,10 @@ def test_tangent():
 
 
 def test_jacobian():
-    u0 = rand(d)
+    u0 = rand(state_dim)
     u0[3] *= T
     epsi = 1.e-8
-    Jacu = zeros((d,d))
+    Jacu = zeros((state_dim,state_dim))
     Jacu[:,0] = ((primal_step(u0 + epsi*array([1.0,0.0,0.0,0.0]),s0,1) - 
                             primal_step(u0 - epsi*array([1.0,0.0,0.0,0.0]),s0,1))/
                             (2.0*epsi))
@@ -135,7 +166,7 @@ def test_jacobian():
     dFds2 = (primal_step(u0,s0 + epsi*array([0.0,1.0]),1)-primal_step(u0,s0
                     - epsi*array([0.0,1.0]),1))/(2.0*epsi)        
 
-    Jacana = dt*gradfs(u0,s0) + eye(d,d)
+    Jacana = dt*gradfs(u0,s0) + eye(state_dim,state_dim)
     print(norm(Jacu-Jacana))
     print(Jacu)
         
@@ -166,10 +197,10 @@ def test_adjoint():
         y1 = [0.0,1.,0.,0.]
         y0_ana = adjoint_step(y1,u0,s0,y1)
 
-        y0_fd = zeros(d)
-        v0 = zeros(d)
-        for i in arange(d):
-                v0 = zeros(d)
+        y0_fd = zeros(state_dim)
+        v0 = zeros(state_dim)
+        for i in arange(state_dim):
+                v0 = zeros(state_dim)
                 v0[i] = 1.0
                 u0pert = u0 + epsi*v0
                 u1pert =  primal_step(u0pert,s0,1)
@@ -198,7 +229,7 @@ def test_tangentadjoint():
 def test_objective():
 #if __name__=="__main__":
     nsamples = 10000
-    u = rand(d,nsamples)*2.0 + -1.0
+    u = rand(state_dim,nsamples)*2.0 + -1.0
     u[3,:] = rand(nsamples)*T
     ntheta = 20
     nphi = 20
@@ -229,8 +260,8 @@ def test_objective():
     z_grid = r_grid*ct_grid
     J1 = zeros(N)
     J2 = zeros(N)
-    dJ1 = zeros((d,N))
-    dJ2 = zeros((d,N))
+    dJ1 = zeros((state_dim,N))
+    dJ2 = zeros((state_dim,N))
     dJ1dphi = zeros(N)
     for i in arange(N):
         u_grid = array([x_grid[i],y_grid[i],z_grid[i],2.0])
