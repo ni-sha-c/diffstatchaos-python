@@ -65,8 +65,10 @@ def visualize_primal():
     u_init[3] = 0.0
     u_init = primal_step(u_init,s0,n_runup)
     n_steps = int(T/dt)*1000
-    u = solve_primal(u_init,n_steps,s)
+    u = solve_primal(u_init,n_steps,s0)
+    u = u[::int(T/dt)]
     stereo_real, stereo_imag = stereographic_projection(u.T)
+    figure()
     plot(stereo_real, stereo_imag, '.', ms=1)
     savefig('st_proj_attractor.png')
 
