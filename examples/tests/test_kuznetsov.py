@@ -118,7 +118,8 @@ def test_tangent():
         figure()
         loglog(epsi,errs, 'o-')
         savefig('errs')
-
+        assert(min(erru) < 1.e-5)
+        assert(min(errs) < 1.e-5)
 
 
 
