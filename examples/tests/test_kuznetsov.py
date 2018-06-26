@@ -71,7 +71,9 @@ def visualize_tangent(u, v):
     plot([stereo_real_plus, stereo_real_minus],
          [stereo_imag_plus, stereo_imag_minus], '-k', ms=1)
 
-#visualize_tangent(u[::int(T/dt)], v0[::int(T/dt)])
+if __name__ == '__main__':
+    visualize_tangent(u[::int(T/dt)], v0[::int(T/dt)])
+
 
 
 
@@ -204,10 +206,12 @@ def test_adjoint():
 def test_tangentadjoint():
         u = rand(4)
         u[3] *= T
+
         y1 = rand(4)
         v0 = rand(4)
         v1 = tangent_step(v0,u,s0,zeros(2))
         y0 = adjoint_step(y1,u,s0,zeros(4))
+        print(u[3])
         print(dot(v1,y1))
         print(dot(v0,y0))
 
