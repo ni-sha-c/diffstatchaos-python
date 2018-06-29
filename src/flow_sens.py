@@ -22,7 +22,7 @@ def solve_primal(u_init, n_steps, s):
     return u
 
 @jit(nopython=True)
-def solve_tangent(u, v_init, n_steps, s, ds):
+def solve_unstable_direction(u, v_init, n_steps, s, ds):
     v = empty((n_steps, v_init.size))
     v[0] = v_init
     for i in range(1,n_steps):
@@ -38,6 +38,14 @@ def solve_adjoint(u, w_init, n_steps, s, dJ):
         w[i-1] = adjoint_step(w[i],u[i-1],s,dJ)
         w[i-1] /= norm(w[i-1])
 
+@jit(nopython=True)
+def solve_dfds(u, s0, n_steps):
+    param_dim = s0.size
+    dfds = zeros((n_steps,param_dim,state_dim))
+    for i in range(n_steps):
+        dfds[i] = DfDs(u[i],s0)
+    return dfds
+
 if __name__ == '__main__':
     n_steps = int(T / dt) * 1000
     n_runup = int(T / dt) * 100
@@ -45,18 +53,18 @@ if __name__ == '__main__':
     n_bins_phi = 20
     dtheta = pi/n_bins_theta
     dphi = 2*pi/n_bins_phi
-    u = zeros((state_dim,n_steps))
+    u = zeros((n_steps,state_dim))
     random.seed(0)
     u_init = rand(state_dim)
     u_init[3] = 0
     u_init = primal_step(u_init,s0,n_runup)
-    
-    ds0 = zeros(s0.size)
+    param_dim = s0.size
+    ds0 = zeros(param_dim)
     dJ0 = zeros(state_dim)
     
-    w0 = zeros((state_dim,n_steps))
-    w0[:,n_steps-1] = rand(state_dim)
-    w0[:,n_steps-1] /= norm(w0[:,n_steps-1])
+    w0 = zeros((n_steps,state_dim))
+    w0[n_steps-1] = rand(state_dim)
+    w0[n_steps-1] /= norm(w0[n_steps-1])
     
     v0_init = rand(state_dim)
     v0_init /= linalg.norm(v0_init)
@@ -64,27 +72,25 @@ if __name__ == '__main__':
     J_theta_phi = zeros((n_bins_theta,n_bins_phi))
     theta_bin_centers = linspace(dtheta/2.0,pi - dtheta/2.0, n_bins_theta)
     phi_bin_centers = linspace(-pi-dphi/2.0,pi - dphi/2.0, n_bins_phi)
-    param_dim = s0.size
     v = zeros(state_dim)
     w_inv = zeros(state_dim)
-    dfds = zeros((state_dim,param_dim,n_steps))
-    divdfds = zeros((param_dim,n_steps))
+    dfds = zeros((n_steps,param_dim,state_dim))
+    divdfds = zeros((n_steps,param_dim))
     dJds_stable = zeros((n_bins_theta,n_bins_phi))
     dJds_unstable = zeros((n_bins_theta,n_bins_phi))
     
     #t0 = time()
     u = solve_primal(u_init, n_steps, s0)
     #t1 = time()
-    v0 = solve_tangent(u, v0_init, n_steps, s0, ds0)
+    v0 = solve_unstable_direction(u, v0_init, n_steps, s0, ds0)
     #t2 = time()
-    
+    dfds = solve_dfds(u,s0,n_steps) 
     #print(n_steps, t1 - t0, t2 - t1)
     
     
-    '''
-    for i in arange(1,n_steps):
-        dfds[:,:,i] = DfDs(u[:,i-1],s0)
     
+     
+    '''
     for i in arange(1,n_steps):
         for t_ind, theta0 in enumerate(theta_bin_centers):
             for p_ind, phi0 in enumerate(phi_bin_centers):

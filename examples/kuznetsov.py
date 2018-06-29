@@ -2,8 +2,8 @@ from pylab import *
 from numpy import *
 from numba import jit
 
-#dt = 1.e-2
-dt = 10
+dt = 1.e-2
+
 s0 = array([1.0,1.0])
 T = 6.0
 boundaries = array([[-1, 1],
@@ -153,7 +153,7 @@ def stereographic_projection(u):
 
     return re_part,im_part
 
-
+@jit(nopython=True)
 def tangent_source(v0, u, s, ds):
     v = copy(v0)
     x = u[0]
@@ -166,27 +166,27 @@ def tangent_source(v0, u, s, ds):
     sigma = diff_rot_freq(t)
     a = rot_freq(t)
     coeff2 = s[0]*(1. - sigma*sigma - a*a)
-    coeff3 = s[0]*a*a*(1.0 - r)		
+    coeff3 = s[1]*a*a*(1.0 - r)		
     dcoeff2_ds1 = coeff2/s[0]
-    dcoeff3_ds2 = coeff3/s[0]
+    dcoeff3_ds2 = coeff3/s[1]
 
 
     v[0] += (-1.0*dcoeff2_ds1*ds[0]*x*y*y + 
-                            dcoeff3_ds2*ds[0]*x)
+                            dcoeff3_ds2*ds[1]*x)
     v[1] += (dcoeff2_ds1*ds[0]*y*x*x + 
-                            dcoeff3_ds2*ds[0]*y)
-    v[2] += dcoeff3_ds2*ds[0]*z
+                            dcoeff3_ds2*ds[1]*y)
+    v[2] += dcoeff3_ds2*ds[1]*z
     
     return v
 
-
+@jit(nopython=True)
 def DfDs(u,s):
-
-    dfds = zeros((d,p))
-    ds1 = [1.0, 0.0]
-    ds2 = [0.0, 1.0]
-    dfds[:,0] = tangent_source(zeros(d),u,s,ds1)
-    dfds[:,1] = tangent_source(zeros(d),u,s,ds2)
+    param_dim = s.size
+    dfds = zeros((param_dim,state_dim))
+    ds1 = array([1.0, 0.0])
+    ds2 = array([0.0, 1.0])
+    dfds[0] = tangent_source(zeros(state_dim),u,s,ds1)
+    dfds[1] = tangent_source(zeros(state_dim),u,s,ds2)
     return dfds
 
 

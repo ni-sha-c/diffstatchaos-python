@@ -71,8 +71,8 @@ def visualize_tangent(u, v):
     plot([stereo_real_plus, stereo_real_minus],
          [stereo_imag_plus, stereo_imag_minus], '-k', ms=1)
 
-if __name__ == '__main__':
-    visualize_tangent(u[::int(T/dt)], v0[::int(T/dt)])
+
+#visualize_tangent(u[::int(T/dt)], v0[::int(T/dt)])
 
 
 
@@ -172,6 +172,35 @@ def test_jacobian():
     v2_fd = v0_fd + dFds2 
     v2_hand = tangent_step(v0,u0,s0,[0.0,1.0])
     print(norm(v2_fd - v2_hand))
+
+
+def test_DfDs():
+    u0 = rand(4)
+    u0[3] *= T
+    n_epsi = 10
+    param_dim = s0.size
+    epsi = logspace(-n_epsi,-1.0,n_epsi)
+    dfds_fd = zeros((n_epsi,param_dim,state_dim))
+    dfds_ana = zeros((param_dim,state_dim))
+    for i in range(param_dim):
+        for k in range(n_epsi):
+            splus = copy(s0)
+            splus[i] += epsi[k]
+            sminus = copy(s0)
+            sminus[i] -= epsi[k]
+
+            dfds_fd[k,i] = (primal_step(u0,splus) - 
+                            primal_step(u0,sminus))/(2.0*epsi[k])/dt
+    err_dfds = zeros(n_epsi)
+    dfds_ana = DfDs(u0,s0)
+    for k in range(n_epsi):
+        err_dfds[k] = norm(dfds_fd[k]-dfds_ana)
+    figure()
+    loglog(epsi,err_dfds, 'o-')
+    savefig('err_dfds')
+
+    assert(min(err_dfds) < 1.e-8)
+
 
 
 
