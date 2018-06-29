@@ -10,7 +10,7 @@ from kuznetsov import *
 
 from pylab import *
 from numpy import *
-from time import time
+from time import clock
 from util import *
 
 @jit(nopython=True)
@@ -31,12 +31,13 @@ def solve_unstable_direction(u, v_init, n_steps, s, ds):
     return v
 
 @jit(nopython=True)
-def solve_adjoint(u, w_init, n_steps, s, dJ):
-    w = empty((n_steps, v_init.size))
+def solve_unstable_adjoint_direction(u, w_init, n_steps, s, dJ):
+    w = empty((n_steps, w_init.size))
     w[-1] = w_init
     for i in range(n_steps-1,0,-1):
         w[i-1] = adjoint_step(w[i],u[i-1],s,dJ)
         w[i-1] /= norm(w[i-1])
+    return w
 
 @jit(nopython=True)
 def solve_dfds(u, s0, n_steps):
@@ -63,8 +64,8 @@ if __name__ == '__main__':
     dJ0 = zeros(state_dim)
     
     w0 = zeros((n_steps,state_dim))
-    w0[n_steps-1] = rand(state_dim)
-    w0[n_steps-1] /= norm(w0[n_steps-1])
+    w0_init = rand(state_dim)
+    w0_init /= linalg.norm(w0_init)
     
     v0_init = rand(state_dim)
     v0_init /= linalg.norm(v0_init)
@@ -79,13 +80,16 @@ if __name__ == '__main__':
     dJds_stable = zeros((n_bins_theta,n_bins_phi))
     dJds_unstable = zeros((n_bins_theta,n_bins_phi))
     
-    #t0 = time()
+    t0 = clock()
     u = solve_primal(u_init, n_steps, s0)
-    #t1 = time()
+    t1 = clock()
     v0 = solve_unstable_direction(u, v0_init, n_steps, s0, ds0)
-    #t2 = time()
+    t2 = clock()
     dfds = solve_dfds(u,s0,n_steps) 
-    #print(n_steps, t1 - t0, t2 - t1)
+    t3 = clock()
+    w0 = solve_unstable_adjoint_direction(u, w0_init, n_steps, s0, dJ0)
+    t4 = clock()
+    print(n_steps, t1 - t0, t2 - t1, t3 - t2, t4 - t3)
     
     
     

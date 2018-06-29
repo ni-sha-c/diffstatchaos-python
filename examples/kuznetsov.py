@@ -515,7 +515,7 @@ def drot_freq_dt(t):
 
 
 
-@jit
+@jit(nopython=True)
 def adjoint_step(y1,u,s,dJ):
 
 
