@@ -44,6 +44,7 @@ def primal_step(u0,s,n=1):
         u[3] = (u[3] + dt)%T
     return u
 
+@jit(nopython=True)
 def objective(u,s,theta0,dtheta,phi0,dphi):
     r = sqrt(u[0]**2.0 + u[1]**2.0 + u[2]**2.0)
     theta = 0.0

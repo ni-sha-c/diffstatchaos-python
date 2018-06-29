@@ -47,13 +47,28 @@ def solve_dfds(u, s0, n_steps):
         dfds[i] = DfDs(u[i],s0)
     return dfds
 
+@jit(nopython=True)
+def compute_objective(u,s0,n_steps,n_theta=25,n_phi=25):
+    theta_bin_centers = linspace(0,pi,n_theta)
+    phi_bin_centers = linspace(-pi,pi,n_phi)
+    dtheta = pi/(n_theta-1)
+    dphi = 2*pi/(n_phi-1)
+    J_theta_phi = zeros((n_steps,n_theta,n_phi))
+    for i in arange(1,n_steps):
+        for t_ind, theta0 in enumerate(theta_bin_centers):
+            for p_ind, phi0 in enumerate(phi_bin_centers):
+                J_theta_phi[i,t_ind,p_ind] += objective(u[i-1],
+                        s0,theta0,dtheta,phi0,dphi)/n_steps
+    return J_theta_phi 
+
+
 if __name__ == '__main__':
     n_steps = int(T / dt) * 1000
     n_runup = int(T / dt) * 100
-    n_bins_theta = 20
-    n_bins_phi = 20
-    dtheta = pi/n_bins_theta
-    dphi = 2*pi/n_bins_phi
+    n_points_theta = 20
+    n_points_phi = 20
+    dtheta = pi/(n_points_theta-1)
+    dphi = 2*pi/(n_points_phi-1)
     u = zeros((n_steps,state_dim))
     random.seed(0)
     u_init = rand(state_dim)
@@ -70,15 +85,15 @@ if __name__ == '__main__':
     v0_init = rand(state_dim)
     v0_init /= linalg.norm(v0_init)
     
-    J_theta_phi = zeros((n_bins_theta,n_bins_phi))
-    theta_bin_centers = linspace(dtheta/2.0,pi - dtheta/2.0, n_bins_theta)
-    phi_bin_centers = linspace(-pi-dphi/2.0,pi - dphi/2.0, n_bins_phi)
+    J_theta_phi = zeros((n_steps,n_points_theta,n_points_phi))
+    theta_bin_centers = linspace(dtheta/2.0,pi - dtheta/2.0, n_points_theta)
+    phi_bin_centers = linspace(-pi-dphi/2.0,pi - dphi/2.0, n_points_phi)
     v = zeros(state_dim)
     w_inv = zeros(state_dim)
     dfds = zeros((n_steps,param_dim,state_dim))
     divdfds = zeros((n_steps,param_dim))
-    dJds_stable = zeros((n_bins_theta,n_bins_phi))
-    dJds_unstable = zeros((n_bins_theta,n_bins_phi))
+    dJds_stable = zeros((n_points_theta,n_points_phi))
+    dJds_unstable = zeros((n_points_theta,n_points_phi))
     
     t0 = clock()
     u = solve_primal(u_init, n_steps, s0)
@@ -89,18 +104,14 @@ if __name__ == '__main__':
     t3 = clock()
     w0 = solve_unstable_adjoint_direction(u, w0_init, n_steps, s0, dJ0)
     t4 = clock()
-    print(n_steps, t1 - t0, t2 - t1, t3 - t2, t4 - t3)
+    J_theta_phi = compute_objective(u,s0,n_steps,n_points_theta,n_points_phi)
+    t5 = clock()
+    print(n_steps, t1 - t0, t2 - t1, t3 - t2, t4 - t3,t5 - t4)
     
     
     
      
     '''
-    for i in arange(1,n_steps):
-        for t_ind, theta0 in enumerate(theta_bin_centers):
-            for p_ind, phi0 in enumerate(phi_bin_centers):
-                J_theta_phi[t_ind,p_ind] += objective(u[:,i-1],
-                        s0,theta0,dtheta,phi0,dphi)/n_steps
-    
     for i in arange(1,n_steps):
         divdfds[:,i] = divDfDs(u[:,i-1],s0)
     
@@ -111,8 +122,8 @@ if __name__ == '__main__':
         v,_= decompose_tangent(v,v0[:,i+1],w0[:,i+1])
         w_inv = adjoint_step(w_inv,u[:,i],s0,dJ0) + source_adjoint*dt
         w_inv,_= decompose_adjoint(w_inv,v0[:,i+1],w0[:,i+1])
-        for i1 in arange(n_bins_theta):
-            for j1 in arange(n_bins_phi):
+        for i1 in arange(n_points_theta):
+            for j1 in arange(n_points_phi):
                 theta0 = theta_bin_centers[i1]
                 phi0 = theta_bin_centers[j1]
                 dJ_theta_phi = Dobjective(u[:,i+1],s0,theta0,dtheta,
@@ -132,14 +143,14 @@ if __name__ == '__main__':
     up = Step(up,sp,n_runup)
     um = Step(um,sm,n_runup)
     epsi = 1.e-4
-    J_sum_m = zeros((n_bins_theta,n_bins_phi))
-    J_sum_p = zeros((n_bins_theta,n_bins_phi))
-    dJds_fd = zeros((n_bins_theta,n_bins_phi))
+    J_sum_m = zeros((n_points_theta,n_points_phi))
+    J_sum_p = zeros((n_points_theta,n_points_phi))
+    dJds_fd = zeros((n_points_theta,n_points_phi))
     for i in arange(n_samples):
         um = Step(um,sm,1)
         up = Step(up,sp,1)
-        for i1 in arange(n_bins_theta):
-            for i2 in arange(n_bins_phi):
+        for i1 in arange(n_points_theta):
+            for i2 in arange(n_points_phi):
                 theta0 = theta_bin_centers[i1]
                 phi0 = phi_bin_centers[i2]
                 J_sum_p[i1,i2] += objective(um,s0,theta0,dtheta,phi0,dphi)
