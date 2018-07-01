@@ -202,6 +202,38 @@ def test_DfDs():
     assert(min(err_dfds) < 1.e-8)
 
 
+#if __name__=="__main__":
+def test_divGradfs():
+
+    n_samples = 100
+    n_epsi = 10
+    epsi = logspace(-n_epsi,-1,n_epsi)
+    u0 = rand(n_samples,state_dim)
+    u0 *= (boundaries[1]-boundaries[0])
+    u0 += boundaries[0]
+    dgf_hand = zeros((n_samples,state_dim))
+    dgf_fd = zeros((n_epsi,n_samples,state_dim))
+    tmp_matrix = zeros((state_dim,state_dim))
+    for i in range(n_samples):
+        dgf_hand[i] = divGradfs(u0[i],s0) 
+        for k in range(n_epsi):
+            for j in range(state_dim):
+                v0 = zeros(state_dim)
+                v0[j] = 1.0
+                tmp_matrix = (gradfs(u0[i]+epsi[k]*v0,s0) -
+                              gradfs(u0[i]-epsi[k]*v0,s0))/(2.0*epsi[k])
+                dgf_fd[k,i] += tmp_matrix[j]
+        
+    err = zeros(n_epsi)
+    for k in range(n_epsi):
+        err[k] = norm(dgf_hand-dgf_fd[k]) 
+    figure()
+    loglog(epsi,err,'o-')
+    ylabel(r'$|| \nabla\cdot(\nabla f_s) -\nabla\cdot(\nabla f_s)_\epsilon^{\rm FD}||$')
+    xlabel(r'$\epsilon$')
+    savefig('err_divGradfs')
+
+    assert(min(err)<1.e-8)
 
 
 def test_adjoint():

@@ -40,12 +40,20 @@ def solve_unstable_adjoint_direction(u, w_init, n_steps, s, dJ):
     return w
 
 @jit(nopython=True)
-def solve_dfds(u, s0, n_steps):
+def compute_source_tangent(u, n_steps, s0):
     param_dim = s0.size
     dfds = zeros((n_steps,param_dim,state_dim))
     for i in range(n_steps):
         dfds[i] = DfDs(u[i],s0)
     return dfds
+
+@jit(nopython=True)
+def compute_source_inverse_adjoint(u, n_steps, s0):
+    dgf = zeros((n_steps,state_dim))
+    for i in range(n_steps):
+        dgf[i] = divGradfs(u[i],s0)
+    return dgf
+
 
 @jit(nopython=True)
 def compute_objective(u,s0,n_steps,n_theta=25,n_phi=25):
@@ -58,8 +66,23 @@ def compute_objective(u,s0,n_steps,n_theta=25,n_phi=25):
         for t_ind, theta0 in enumerate(theta_bin_centers):
             for p_ind, phi0 in enumerate(phi_bin_centers):
                 J_theta_phi[i,t_ind,p_ind] += objective(u[i-1],
-                        s0,theta0,dtheta,phi0,dphi)/n_steps
+                        s0,theta0,dtheta,phi0,dphi)
     return J_theta_phi 
+
+@jit(nopython=True)
+def compute_gradient_objective(u,s0,n_steps,n_theta=25,n_phi=25):
+    theta_bin_centers = linspace(0,pi,n_theta)
+    phi_bin_centers = linspace(-pi,pi,n_phi)
+    dtheta = pi/(n_theta-1)
+    dphi = 2*pi/(n_phi-1)
+    DJ_theta_phi = zeros((n_steps,n_theta,n_phi,state_dim))
+    for i in arange(1,n_steps):
+        for t_ind, theta0 in enumerate(theta_bin_centers):
+            for p_ind, phi0 in enumerate(phi_bin_centers):
+                DJ_theta_phi[i,t_ind,p_ind] += Dobjective(u[i-1],
+                        s0,theta0,dtheta,phi0,dphi)
+    return DJ_theta_phi 
+
 
 
 if __name__ == '__main__':
@@ -86,28 +109,45 @@ if __name__ == '__main__':
     v0_init /= linalg.norm(v0_init)
     
     J_theta_phi = zeros((n_steps,n_points_theta,n_points_phi))
+    DJ_theta_phi = zeros((n_steps,n_points_theta,n_points_phi))  
     theta_bin_centers = linspace(dtheta/2.0,pi - dtheta/2.0, n_points_theta)
     phi_bin_centers = linspace(-pi-dphi/2.0,pi - dphi/2.0, n_points_phi)
     v = zeros(state_dim)
     w_inv = zeros(state_dim)
     dfds = zeros((n_steps,param_dim,state_dim))
-    divdfds = zeros((n_steps,param_dim))
+    source_inverse_adjoint = zeros((n_steps,state_dim))
+    source_tangent = zeros((n_steps,param_dim,state_dim))
     dJds_stable = zeros((n_points_theta,n_points_phi))
     dJds_unstable = zeros((n_points_theta,n_points_phi))
-    
+     
     t0 = clock()
     u = solve_primal(u_init, n_steps, s0)
     t1 = clock()
     v0 = solve_unstable_direction(u, v0_init, n_steps, s0, ds0)
     t2 = clock()
-    dfds = solve_dfds(u,s0,n_steps) 
+    source_tangent = compute_source_tangent(u,n_steps,s0) 
     t3 = clock()
     w0 = solve_unstable_adjoint_direction(u, w0_init, n_steps, s0, dJ0)
     t4 = clock()
     J_theta_phi = compute_objective(u,s0,n_steps,n_points_theta,n_points_phi)
     t5 = clock()
-    print(n_steps, t1 - t0, t2 - t1, t3 - t2, t4 - t3,t5 - t4)
-    
+    DJ_theta_phi = compute_gradient_objective(u,s0,n_steps,n_points_theta,n_points_phi)
+    t6 = clock()
+    source_inverse_adjoint = compute_source_inverse_adjoint(u,n_steps,s0)
+    t7 = clock()
+    print('='*50)
+    print("Pre-computation times for {:>10d} steps".format(n_steps))
+    print('='*50)
+    print('{:<25s}{:>16.10f}'.format("primal", t1-t0))
+    print('{:<25s}{:>16.10f}'.format("tangent",t2 - t1)) 
+    print('{:<25s}{:>16.10f}'.format("tangent source", t3 - t2))
+    print('{:<25s}{:>16.10f}'.format("adjoint ", t4 - t3))
+    print('{:<25s}{:>16.10f}'.format("inverse adjoint source", t7 - t6))
+    print('{:<25s}{:>16.10f}'.format("objective ", t5 - t4)) 
+    print('{:<25s}{:>16.10f}'.format("gradient objective ", t6 - t5))
+    print('*'*50)
+    print("End of pre-computation")
+    print('*'*50)
     
     
      

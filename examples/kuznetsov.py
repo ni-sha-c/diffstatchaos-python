@@ -68,6 +68,7 @@ def objective(u,s,theta0,dtheta,phi0,dphi):
             max(0.0, min(1.0+tfrac,1.0-tfrac)))
     return obj1
 
+@jit(nopython=True)
 def Dobjective(u,s,theta0,dtheta,phi0,dphi):
 
     res = zeros(state_dim)
@@ -266,22 +267,69 @@ def gradfs(u,s):
 
 	return dFdu
 
-
+@jit(nopython=True)
 def divGradfs(u,s):
+    x = u[0]
+    y = u[1]
+    z = u[2]
+    t = u[3]	
+    r2 = x**2 + y**2 + z**2	
+    r = sqrt(r2)
+    t = t%T
+    sigma = diff_rot_freq(t)
+    a = rot_freq(t)
+    dsigma_dt = ddiff_rot_freq_dt(t)
+    da_dt = drot_freq_dt(t)
 
-	epsi = 1.e-8			
-	dgf = zeros(d)
-	v = zeros(d)
-	tmp_matrix = zeros((d,d))
-	for i in range(d):
-		v = zeros(d)
-		v[i] = 1.0
-		tmp_matrix = (gradfs(u + epsi*v,s) - 
-		 gradfs(u - epsi*v,s))/(2*epsi)
-		dgf += tmp_matrix[i,:]
+    coeff1 = sigma*pi*0.5*(z*sqrt(2) + 1)
+    coeff2 = s[0]*(1. - sigma*sigma - a*a)
+    coeff3 = s[1]*a*a*(1.0 - r)		
 
-	
-	return dgf.T
+    dcoeff1_dt = pi*0.5*(z*sqrt(2) + 1)*dsigma_dt
+    dcoeff2_dt = s[0]*(-2.0)*(sigma*dsigma_dt + a*da_dt)
+    dcoeff3_dt = s[1]*(1.0 - r)*2.0*a*da_dt
+
+
+    dcoeff1_dz = sigma*pi*0.5*sqrt(2)
+    dcoeff2_ds1 = coeff2/s[0]
+    dcoeff3_ds2 = coeff3/s[1]
+    dcoeff3_dx = s[1]*a*a*(-x)/r
+    dcoeff3_dy = s[1]*a*a*(-y)/r
+    dcoeff3_dz = s[1]*a*a*(-z)/r
+    
+    d2coeff3_dxdy = s[1]*a*a*x/r2*y/r
+    d2coeff3_dxdz = s[1]*a*a*z/r2*x/r
+    d2coeff3_dydz = s[1]*a*a*z/r2*y/r
+    d2coeff3_dx2 = s[1]*a*a*(x/r2*x/r - 1.0/r) 
+    d2coeff3_dy2 = s[1]*a*a*(y/r2*y/r - 1.0/r)
+    d2coeff3_dz2 = s[1]*a*a*(z/r2*z/r - 1.0/r)
+
+    d2coeff3_dxdt = s[1]*(-x)/r*2.0*a*da_dt
+    d2coeff3_dydt = s[1]*(-y)/r*2.0*a*da_dt
+    d2coeff3_dzdt = s[1]*(-z)/r*2.0*a*da_dt
+
+    dgf = zeros(state_dim)
+    dgf[0] = (dcoeff3_dx + dcoeff3_dx +
+            d2coeff3_dx2*x + coeff2*x*2.0 + 
+            d2coeff3_dxdy*y + dcoeff3_dx + 
+            d2coeff3_dxdz*z + dcoeff3_dx)
+
+    dgf[1] = (-coeff2*2.0*y + dcoeff3_dy + 
+            d2coeff3_dxdy*x + dcoeff3_dy + 
+            dcoeff3_dy + d2coeff3_dy2*y + 
+            dcoeff3_dy + d2coeff3_dydz*z)
+
+    dgf[2] = (d2coeff3_dxdz*x + dcoeff3_dz + 
+            d2coeff3_dydz*y + dcoeff3_dz + 
+            d2coeff3_dz2*z + dcoeff3_dz + 
+            dcoeff3_dz)
+
+    dgf[3] = (-dcoeff2_dt*y*y + d2coeff3_dxdt*x + 
+            dcoeff3_dt + dcoeff2_dt*x*x + 
+            d2coeff3_dydt*y + dcoeff3_dt + 
+            d2coeff3_dzdt*z + dcoeff3_dt)
+    return dgf
+
 	
 
 def divDfDs(u,s):
