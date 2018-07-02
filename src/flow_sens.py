@@ -150,20 +150,16 @@ if __name__ == '__main__':
     print('*'*50)
     
     
-     
-    '''
-    for i in arange(1,n_steps):
-        divdfds[:,i] = divDfDs(u[:,i-1],s0)
-    
-    for i in arange(1,n_steps-1):
-        source_tangent = DfDs(u[:,i],s0)[:,0]
-        source_adjoint = divGradfs(u[:,i],s0)
-        v = tangent_step(v,u[:,i],s0,ds0) + source_tangent*dt
-        v,_= decompose_tangent(v,v0[:,i+1],w0[:,i+1])
-        w_inv = adjoint_step(w_inv,u[:,i],s0,dJ0) + source_adjoint*dt
-        w_inv,_= decompose_adjoint(w_inv,v0[:,i+1],w0[:,i+1])
-        for i1 in arange(n_points_theta):
-            for j1 in arange(n_points_phi):
+    ds1 = copy(ds0)
+    ds1[0] = 1.0
+        
+    for i in arange(n_steps-1):
+        v = tangent_step(v,u[i],s0,ds1) 
+        v,_= decompose_tangent(v,v0[i+1],w0[i+1])
+        w_inv = adjoint_step(w_inv,u[i],s0,dJ0) + source_adjoint[i]*dt
+        w_inv,_= decompose_adjoint(w_inv,v0[i+1],w0[i+1])
+        for i1 in range(n_points_theta):
+            for j1 in range(n_points_phi):
                 theta0 = theta_bin_centers[i1]
                 phi0 = theta_bin_centers[j1]
                 dJ_theta_phi = Dobjective(u[:,i+1],s0,theta0,dtheta,
@@ -197,4 +193,4 @@ if __name__ == '__main__':
                 J_sum_m[i1,i2] += objective(um,s0,theta0,dtheta,phi0,dphi)
                 dJds_fd[i1,i2] += (J_sum_p[i1,i2]-J_sum_m[i1,i2]) \
                                 / (2.0*epsi)/n_samples
-    '''
+    
