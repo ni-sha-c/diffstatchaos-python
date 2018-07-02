@@ -66,7 +66,7 @@ def compute_objective(u,s0,n_steps,n_theta=25,n_phi=25):
         for t_ind, theta0 in enumerate(theta_bin_centers):
             for p_ind, phi0 in enumerate(phi_bin_centers):
                 J_theta_phi[i,t_ind,p_ind] += objective(u[i-1],
-                        s0,theta0,dtheta,phi0,dphi)
+                        s0,theta0,dtheta,phi0,dphi)/n_steps
     return J_theta_phi 
 
 @jit(nopython=True)
@@ -83,7 +83,45 @@ def compute_gradient_objective(u,s0,n_steps,n_theta=25,n_phi=25):
                         s0,theta0,dtheta,phi0,dphi)
     return DJ_theta_phi 
 
+@jit(nopython=True)    
+def compute_finite_difference_sensitivity(n_samples,s0,n_points_theta, \
+        n_points_phi):
 
+    um = (rand(state_dim)*(boundaries[1]-boundaries[0]) + 
+                      boundaries[0])
+    up = copy(um)
+    sm = copy(s0)
+    sp = copy(s0)
+    epsi = 1.e-4
+    sm[0] -= epsi
+    sp[0] += epsi
+    up = primal_step(up,sp,n_runup)
+    um = primal_step(um,sm,n_runup)
+    epsi = 1.e-4
+    J_sum_m = zeros((n_points_theta,n_points_phi))
+    J_sum_p = zeros((n_points_theta,n_points_phi))
+    dJds_fd = zeros((n_points_theta,n_points_phi))
+    n_steps = 1000
+    
+    
+    for i in arange(n_samples):
+        um_traj = solve_primal(um,n_steps,sm)
+        up_traj = solve_primal(up,n_steps,sp)
+        
+        J_sum_m += (compute_objective(um_traj,sm,n_steps,\
+                n_points_theta,\
+                n_points_phi)).sum(0)/n_samples
+        
+        J_sum_p += (compute_objective(up_traj,sp,n_steps,\
+                n_points_theta,\
+                n_points_phi)).sum(0)/n_samples
+        dJds_fd += (J_sum_p-J_sum_m) \
+                                / (2.0*epsi)/n_samples
+        um = copy(um_traj[-1])
+        up = copy(up_traj[-1])
+    return dJds_fd
+
+ 
 
 if __name__ == '__main__':
     n_steps = int(T / dt) * 1000
@@ -129,9 +167,9 @@ if __name__ == '__main__':
     t3 = clock()
     w0 = solve_unstable_adjoint_direction(u, w0_init, n_steps, s0, dJ0)
     t4 = clock()
-    J_theta_phi = compute_objective(u,s0,n_steps,n_points_theta,n_points_phi)
+    #J_theta_phi = compute_objective(u,s0,n_steps,n_points_theta,n_points_phi)
     t5 = clock()
-    DJ_theta_phi = compute_gradient_objective(u,s0,n_steps,n_points_theta,n_points_phi)
+    #DJ_theta_phi = compute_gradient_objective(u,s0,n_steps,n_points_theta,n_points_phi)
     t6 = clock()
     source_inverse_adjoint = compute_source_inverse_adjoint(u,n_steps,s0)
     t7 = clock()
@@ -149,7 +187,18 @@ if __name__ == '__main__':
     print("End of pre-computation")
     print('*'*50)
     
-    
+    dJds_fd = compute_finite_difference_sensitivity(10000,s0,20,20)
+    figure()
+    phi_grid = linspace(-pi,pi,n_points_phi)
+    theta_grid = linspace(0.,pi,n_points_theta)
+    contourf(phi_grid,theta_grid,dJds_fd)
+    xlabel(r"$\theta$")
+    ylabel(r"$\phi$")
+    colorbar()
+    savefig("sensitivity_finite_difference")
+
+
+    ''' 
     ds1 = copy(ds0)
     ds1[0] = 1.0
         
@@ -167,30 +216,5 @@ if __name__ == '__main__':
                 dJds_stable[i1,j1] += dot(dJ_theta_phi,v)/n_steps
                 dJds_unstable[i1,j1] -= J_theta_phi[i1,j1]*(divdfds[0,i+1] +
                         dot(dfds[:,0,i+1],w_inv))
-    
-    
-    n_samples = 100000
-    um = rand(state_dim)*2.0 - 1.0
-    up = rand(state_dim)*2.0 - 1.0
-    sm = copy(s0)
-    sp = copy(s0)
-    sm[0] -= epsi
-    sp[0] += epsi
-    up = Step(up,sp,n_runup)
-    um = Step(um,sm,n_runup)
-    epsi = 1.e-4
-    J_sum_m = zeros((n_points_theta,n_points_phi))
-    J_sum_p = zeros((n_points_theta,n_points_phi))
-    dJds_fd = zeros((n_points_theta,n_points_phi))
-    for i in arange(n_samples):
-        um = Step(um,sm,1)
-        up = Step(up,sp,1)
-        for i1 in arange(n_points_theta):
-            for i2 in arange(n_points_phi):
-                theta0 = theta_bin_centers[i1]
-                phi0 = phi_bin_centers[i2]
-                J_sum_p[i1,i2] += objective(um,s0,theta0,dtheta,phi0,dphi)
-                J_sum_m[i1,i2] += objective(um,s0,theta0,dtheta,phi0,dphi)
-                dJds_fd[i1,i2] += (J_sum_p[i1,i2]-J_sum_m[i1,i2]) \
-                                / (2.0*epsi)/n_samples
-    
+    '''    
+       
