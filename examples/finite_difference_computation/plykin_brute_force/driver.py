@@ -24,11 +24,11 @@ def computeObjRep(ntheta, nphi, s1, s2, nrep):
 
 s1, s2 = 1., 1.
 n = 50
-ds = 0.05
-dobjds1 = (computeObjRep(n, n, s1 + ds, s2, 100) -
-           computeObjRep(n, n, s1 - ds, s2, 100)) / (2 * ds)
-dobjds2 = (computeObjRep(n, n, s1, s2 + ds, 100) -
-           computeObjRep(n, n, s1, s2 - ds, 100)) / (2 * ds)
+ds = 0.01
+dobjds1 = (computeObjRep(n, n, s1 + ds, s2, 10) -
+           computeObjRep(n, n, s1 - ds, s2, 10)) / (2 * ds)
+dobjds2 = (computeObjRep(n, n, s1, s2 + ds, 10) -
+           computeObjRep(n, n, s1, s2 - ds, 10)) / (2 * ds)
 
 savetxt("dJds1_fd.txt",dobjds1)
 savetxt("dJds2_fd.txt",dobjds2)
@@ -48,11 +48,11 @@ y = hstack([y, y[:,:1]])
 dobjds1 = hstack([dobjds1, dobjds1[:,:1]])
 dobjds2 = hstack([dobjds2, dobjds2[:,:1]])
 f = figure(1)
-conthetaourf(x, y, dobjds1, 100)
+contourf(x, y, dobjds1, 100)
 axis('scaled')
 colorbar()
 g = figure(2)
-conthetaourf(x, y, dobjds2, 100)
+contourf(x, y, dobjds2, 100)
 axis('scaled')
 colorbar()
 '''

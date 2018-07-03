@@ -10,7 +10,7 @@ template<typename ftype>
 __device__ __forceinline__ void step(ftype u[4], ftype s[2], int n)
 {
 	const double PI = atan2(1.0, 0.0) * 2;
-	const double dt = 1.e-4;
+	const double dt = 1.e-2;
 	const double T = 6.0;
     for (int i = 0; i < n; ++i) {
         ftype x = u[0];
@@ -26,8 +26,7 @@ __device__ __forceinline__ void step(ftype u[4], ftype s[2], int n)
 		ftype coeff1 = sigma*PI*0.5*(z*sqrt(2.0) + 1.0);
 		ftype coeff2 = s[0]*(1.0 - sigma*sigma - a*a);
 		ftype coeff3 = s[1]*a*a*(1.0 - r);
-        
-		
+        	
 		u[0] += dt*(-coeff1*y -
                         coeff2*x*y*y +
                         0.5*a*PI*z + coeff3*x);
@@ -58,7 +57,7 @@ __device__ __forceinline__ ftype rot_freq(ftype t)
     ftype c3 = 6.0;
     ftype c4 = 0.0;
 
-    ftype slope = 20.0;
+    ftype slope = 10.0;
     ftype est = exp(slope*t);
     ftype esc0 = exp(slope*c0);
     ftype esc1 = exp(slope*c1);
@@ -88,7 +87,7 @@ __device__ __forceinline__ ftype diff_rot_freq(ftype t)
     ftype c2 = 4.0;
     ftype c3 = 5.0;
 
-    ftype slope = 20.0;
+    ftype slope = 10.0;
     ftype est = exp(slope*t);
     ftype esc0 = exp(slope*c0);
     ftype esc1 = exp(slope*c1);
@@ -133,16 +132,19 @@ __global__ void accumulate(ftype (*u)[4], ftype s[2], objType *obj,
 {
     const double PI = atan2(1.0, 0.0) * 2;
     int i = blockIdx.x * blockDim.x + threadIdx.x;
-    step(u[i], s, steps);
-    ftype dtheta = PI / ntheta;
+	step(u[i], s, steps);
+	ftype dtheta = PI / ntheta;
     ftype dphi = (2*PI) / nphi;
     for (int itheta = 0; itheta < ntheta; ++itheta) {
         for (int iphi = 0; iphi < nphi; ++iphi) {
             int ibin = itheta * nphi + iphi;
             ftype obji = objective(u[i], s, itheta, dtheta, iphi, dphi);
-            if (obji) atomicAdd(obj + ibin, obji);
+            if (obji) 
+				atomicAdd(obj + ibin, obji);
+			
         }
     }
+	
 }
 
 typedef float ftype;
@@ -159,13 +161,14 @@ void init(ftype (**u)[4], ftype ** s, ftype s1, ftype s2, int nBlocks, int threa
     }
     cudaMalloc(u, sizeof(ftype) * nSamples * 4);
     cudaMemcpy(*u, uCPU, sizeof(ftype) * nSamples * 4, cudaMemcpyHostToDevice);
+	
     delete[] uCPU;
 
     ftype sCPU[2] = {s1, s2};
     cudaMalloc(s, sizeof(ftype) * 2);
     cudaMemcpy(*s, sCPU, sizeof(ftype) * 2, cudaMemcpyHostToDevice);
 
-    accumulate<<<nBlocks, threadsPerBlock>>>(*u, *s, (ftype*)0, 0, 0, 1000);
+    accumulate<<<nBlocks, threadsPerBlock>>>(*u, *s, (ftype*)0, 0, 0, 5000);
 
 
 }
@@ -185,6 +188,7 @@ int main(int argc, char * argv[])
     int nphi0 = atoi(argv[3]);
 	ftype s1 = atof(argv[4]);
 	ftype s2 = atof(argv[5]); 
+	
 
     ftype (*u)[4], *s;
     init(&u, &s, s1, s2, nBlocks, threadsPerBlock);
@@ -201,12 +205,13 @@ int main(int argc, char * argv[])
         cudaMemset(objective, 0, sizeof(ftype) * nphi0 * ntheta0);
         accumulate<<<nBlocks, threadsPerBlock>>>(u, s, objective, ntheta0, nphi0, 10);
         cudaMemcpy(objCPU, objective, sizeof(ftype) * nphi0 * ntheta0, cudaMemcpyDeviceToHost);
+
     
         for (int i = 0; i < ntheta0 * nphi0; ++i) {
             objFinal[i] += objCPU[i] / nRepeat / nBlocks / threadsPerBlock;
         }
     }
-
+	
     for (int it0 = 0; it0 < ntheta0; ++it0) {
         for (int ir0 = 0; ir0 < nphi0; ++ir0) {
             int i = it0 * nphi0 + ir0;

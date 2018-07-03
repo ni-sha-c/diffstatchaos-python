@@ -204,20 +204,14 @@ if __name__ == '__main__':
     ds1 = copy(ds0)
     ds1[0] = 1.0
     n_steps = 2 
-    for i in arange(n_steps-1):
+    for i in range(n_steps-1):
         v = tangent_step(v,u[i],s0,ds1) 
         v,vcheck= decompose_tangent(v,v0[i+1],w0[i+1])
         w_inv = adjoint_step(w_inv,u[i],s0,dJ0) + source_inverse_adjoint[i]*dt
-        w_inv,wcheck= decompose_adjoint(w_inv,v0[i+1],w0[i+1])
-        '''
-        for i1 in range(n_points_theta):
-            for j1 in range(n_points_phi):
-                theta0 = theta_bin_centers[i1]
-                phi0 = theta_bin_centers[j1]
-                dJ_theta_phi = Dobjective(u[:,i+1],s0,theta0,dtheta,
-                                    phi0,dphi)
-                dJds_stable[i1,j1] += dot(dJ_theta_phi,v)/n_steps
-                dJds_unstable[i1,j1] -= J_theta_phi[i1,j1]*(divdfds[0,i+1] +
+        w_inv,wcheck= decompose_adjoint(w_inv,v0[i+1],w0[i+1]) 
+        dJds_stable += dot(DJ_theta_phi[i],v)/n_steps
+        for j in range(i,n_steps): 
+            dJds_unstable -= J_theta_phi[i]*(divdfds[0,i+1] +
                         dot(dfds[:,0,i+1],w_inv))
-        '''    
+            
        
