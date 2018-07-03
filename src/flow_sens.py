@@ -101,9 +101,8 @@ def compute_finite_difference_sensitivity(n_samples,s0,n_points_theta, \
     J_sum_m = zeros((n_points_theta,n_points_phi))
     J_sum_p = zeros((n_points_theta,n_points_phi))
     dJds_fd = zeros((n_points_theta,n_points_phi))
-    n_steps = 1000
-    
-    
+    n_steps = 100000
+     
     for i in arange(n_samples):
         um_traj = solve_primal(um,n_steps,sm)
         up_traj = solve_primal(up,n_steps,sp)
@@ -186,8 +185,11 @@ if __name__ == '__main__':
     print('*'*50)
     print("End of pre-computation")
     print('*'*50)
-    
-    dJds_fd = compute_finite_difference_sensitivity(10000,s0,20,20)
+
+    '''
+    tt = clock()
+    dJds_fd = compute_finite_difference_sensitivity(10,s0,20,20)
+    print("Time taken for 10 samples is {:<10f}".format(clock()-tt))
     figure()
     phi_grid = linspace(-pi,pi,n_points_phi)
     theta_grid = linspace(0.,pi,n_points_theta)
@@ -196,17 +198,18 @@ if __name__ == '__main__':
     ylabel(r"$\phi$")
     colorbar()
     savefig("sensitivity_finite_difference")
+    '''
 
-
-    ''' 
+     
     ds1 = copy(ds0)
     ds1[0] = 1.0
-        
+    n_steps = 2 
     for i in arange(n_steps-1):
         v = tangent_step(v,u[i],s0,ds1) 
-        v,_= decompose_tangent(v,v0[i+1],w0[i+1])
-        w_inv = adjoint_step(w_inv,u[i],s0,dJ0) + source_adjoint[i]*dt
-        w_inv,_= decompose_adjoint(w_inv,v0[i+1],w0[i+1])
+        v,vcheck= decompose_tangent(v,v0[i+1],w0[i+1])
+        w_inv = adjoint_step(w_inv,u[i],s0,dJ0) + source_inverse_adjoint[i]*dt
+        w_inv,wcheck= decompose_adjoint(w_inv,v0[i+1],w0[i+1])
+        '''
         for i1 in range(n_points_theta):
             for j1 in range(n_points_phi):
                 theta0 = theta_bin_centers[i1]
@@ -216,5 +219,5 @@ if __name__ == '__main__':
                 dJds_stable[i1,j1] += dot(dJ_theta_phi,v)/n_steps
                 dJds_unstable[i1,j1] -= J_theta_phi[i1,j1]*(divdfds[0,i+1] +
                         dot(dfds[:,0,i+1],w_inv))
-    '''    
+        '''    
        
