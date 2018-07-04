@@ -161,7 +161,7 @@ def compute_sensitivity(u,s0,v0,w0,dJ,ds,dfds,cumsumJ,N):
     for i in range(N_padded-1):
         v = tangent_step(v,u[i],s0,ds) 
         v,_= decompose_tangent(v,v0[i+1],w0[i+1])
-        w_inv = adjoint_step(w_inv,u[i],s0,dJ0) + source_inverse_adjoint[i]*dt
+        w_inv = adjoint_step(w_inv,u[i],s0,dJ0) - source_inverse_adjoint[i]*dt
         w_inv,_= decompose_adjoint(w_inv,v0[i+1],w0[i+1]) 
         if(i < N):
             for t1 in range(ntheta):
@@ -275,7 +275,7 @@ if __name__ == '__main__':
     dJds = dJds_stable + dJds_unstable
     theta = linspace(0,pi,n_points_theta)
     phi = linspace(-pi,pi,n_points_phi)
-    contourf(phi,theta,dJds)
+    contourf(phi,theta,dJds,100)
     xlabel(r"$\phi$")
     ylabel(r"$\theta$")
     colorbar()
