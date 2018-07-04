@@ -148,6 +148,20 @@ def compute_correlation_Jg(cumsum_J, \
     return temp_array[:n_samples].sum(0)
 
 
+@jit(nopython=True)
+def compute_sensitivity(u,v0,w0,dJ,ds,N):
+    N_padded = u.shape[0]
+    for i in range(N_padded-1):
+        v = tangent_step(v,u[i],s0,ds1) 
+        v,_= decompose_tangent(v,v0[i+1],w0[i+1])
+        w_inv = adjoint_step(w_inv,u[i],s0,dJ0) + source_inverse_adjoint[i]*dt
+        w_inv,_= decompose_adjoint(w_inv,v0[i+1],w0[i+1]) 
+        if(i > n_adjoint_converge):
+            dJds_stable += dot(DJ_theta_phi[i],v)/n_steps
+            for j in range(i,n_steps): 
+                dJds_unstable -= J_theta_phi[i]*(divdfds[0,i+1] +
+                        dot(dfds[:,0,i+1],w_inv))
+        return dJds_stable,dJds_unstable 
 
 
 if __name__ == '__main__':
@@ -199,7 +213,7 @@ if __name__ == '__main__':
     t4 = clock()
     J_theta_phi = compute_objective(u,s0,n_steps,n_points_theta,n_points_phi)
     t5 = clock()
-    #DJ_theta_phi = compute_gradient_objective(u,s0,n_steps,n_points_theta,n_points_phi)
+    DJ_theta_phi = compute_gradient_objective(u,s0,n_steps,n_points_theta,n_points_phi)
     t6 = clock()
     source_inverse_adjoint = compute_source_inverse_adjoint(u,n_steps,s0)
     t7 = clock()
@@ -234,20 +248,26 @@ if __name__ == '__main__':
     t12 = clock()
     print('{:<35s}{:>16.10f}'.format("Preprocessing objective", t11-t10))
     print('{:<35s}{:>16.10f}'.format("objective source correlation", t12-t11))
-    
+    print('*'*50)
+    print('End of sensitivity source term computation')
+    print('*'*50)
+
     
     ds1 = copy(ds0)
     ds1[0] = 1.0
-    '''
-    for i in range(n_adjoint_converge + n_steps-1):
-        v = tangent_step(v,u[i],s0,ds1) 
-        v,vcheck= decompose_tangent(v,v0[i+1],w0[i+1])
-        w_inv = adjoint_step(w_inv,u[i],s0,dJ0) + source_inverse_adjoint[i]*dt
-        w_inv,wcheck= decompose_adjoint(w_inv,v0[i+1],w0[i+1]) 
-        if(i > n_adjoint_converge):
-            dJds_stable += dot(DJ_theta_phi[i],v)/n_steps
-            for j in range(i,n_steps): 
-                dJds_unstable -= J_theta_phi[i]*(divdfds[0,i+1] +
-                        dot(dfds[:,0,i+1],w_inv))
-            
-    '''       
+    print('Starting stable--adjoint-unstable split evolution...')
+    t13 = clock()
+    dJds_stable, dJds_unstable = compute_sensitivity(u,v0,w0,DJ_theta_phi,\
+            ds1,n_samples)
+    t14 = clock()
+    print('End of computation...')
+    dJds_unstable += correlation_J_divDfDs
+
+    dJds = dJds_stable + dJds_unstable
+    theta = linspace(0,pi,n_points_theta)
+    phi = linspace(-pi,pi,n_points_phi)
+    contourf(phi,theta,dJds.T)
+    xlabel(r"$\phi$")
+    ylabel(r"$\theta$")
+    colorbar()
+    savefig("../examples/plots/plykin_main1")      
