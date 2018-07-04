@@ -149,19 +149,27 @@ def compute_correlation_Jg(cumsum_J, \
 
 
 @jit(nopython=True)
-def compute_sensitivity(u,v0,w0,dJ,ds,N):
+def compute_sensitivity(u,s0,v0,w0,dJ,ds,dfds,cumsumJ,N):
     N_padded = u.shape[0]
+    v = zeros(state_dim)
+    dJ0 = zeros(state_dim)
+    w_inv = zeros(state_dim)
+    dJds_stable = zeros(cumsumJ.shape[1:])
+    dJds_unstable = zeros(cumsumJ.shape[1:])
+    ntheta = DJ_theta_phi.shape[1]
+    nphi = DJ_theta_phi.shape[2]
     for i in range(N_padded-1):
-        v = tangent_step(v,u[i],s0,ds1) 
+        v = tangent_step(v,u[i],s0,ds) 
         v,_= decompose_tangent(v,v0[i+1],w0[i+1])
         w_inv = adjoint_step(w_inv,u[i],s0,dJ0) + source_inverse_adjoint[i]*dt
         w_inv,_= decompose_adjoint(w_inv,v0[i+1],w0[i+1]) 
-        if(i > n_adjoint_converge):
-            dJds_stable += dot(DJ_theta_phi[i],v)/n_steps
-            for j in range(i,n_steps): 
-                dJds_unstable -= J_theta_phi[i]*(divdfds[0,i+1] +
-                        dot(dfds[:,0,i+1],w_inv))
-        return dJds_stable,dJds_unstable 
+        if(i < N):
+            for t1 in range(ntheta):
+                for p1 in range(nphi):
+                    dJds_stable += dot(DJ_theta_phi[i,t1,p1],v)/N
+            dJds_unstable -= cumsumJ[i]*( \
+                            dot(dfds[i+1],w_inv))/N
+    return dJds_stable,dJds_unstable 
 
 
 if __name__ == '__main__':
@@ -190,7 +198,7 @@ if __name__ == '__main__':
     v0_init /= linalg.norm(v0_init)
     
     J_theta_phi = zeros((n_steps,n_points_theta,n_points_phi))
-    DJ_theta_phi = zeros((n_steps,n_points_theta,n_points_phi))  
+    DJ_theta_phi = zeros((n_steps,n_points_theta,n_points_phi,state_dim))  
     theta_bin_centers = linspace(dtheta/2.0,pi - dtheta/2.0, n_points_theta)
     phi_bin_centers = linspace(-pi-dphi/2.0,pi - dphi/2.0, n_points_phi)
     v = zeros(state_dim)
@@ -207,7 +215,7 @@ if __name__ == '__main__':
     t1 = clock()
     v0 = solve_unstable_direction(u, v0_init, n_steps, s0, ds0)
     t2 = clock()
-    source_tangent = compute_source_tangent(u,n_steps,s0) 
+    source_tangent = compute_source_tangent(u,n_steps,s0)[:,0,:] 
     t3 = clock()
     w0 = solve_unstable_adjoint_direction(u, w0_init, n_steps, s0, dJ0)
     t4 = clock()
@@ -255,18 +263,19 @@ if __name__ == '__main__':
     
     ds1 = copy(ds0)
     ds1[0] = 1.0
-    print('Starting stable--adjoint-unstable split evolution...')
+    print('Starting stable-(adjoint-unstable) split evolution...')
     t13 = clock()
-    dJds_stable, dJds_unstable = compute_sensitivity(u,v0,w0,DJ_theta_phi,\
-            ds1,n_samples)
+    dJds_stable, dJds_unstable = compute_sensitivity(u,s0,v0,w0,DJ_theta_phi,\
+            ds1,source_tangent,cumsum_J_theta_phi,n_samples)
     t14 = clock()
+    print('{:<35s}{:>16.10f}'.format("time taken",t14-t13))
     print('End of computation...')
     dJds_unstable += correlation_J_divDfDs
 
     dJds = dJds_stable + dJds_unstable
     theta = linspace(0,pi,n_points_theta)
     phi = linspace(-pi,pi,n_points_phi)
-    contourf(phi,theta,dJds.T)
+    contourf(phi,theta,dJds)
     xlabel(r"$\phi$")
     ylabel(r"$\theta$")
     colorbar()
