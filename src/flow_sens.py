@@ -56,6 +56,15 @@ def compute_source_inverse_adjoint(u, n_steps, s0):
 
 
 @jit(nopython=True)
+def compute_source_sensitivity(u, n_steps, s0):
+    param_dim = s0.size
+    ddfds = zeros((n_steps,param_dim))
+    for i in range(n_steps):
+        ddfds[i] = divDfDs(u[i],s0)
+    return ddfds
+
+
+@jit(nopython=True)
 def compute_objective(u,s0,n_steps,n_theta=25,n_phi=25):
     theta_bin_centers = linspace(0,pi,n_theta)
     phi_bin_centers = linspace(-pi,pi,n_phi)
@@ -68,6 +77,16 @@ def compute_objective(u,s0,n_steps,n_theta=25,n_phi=25):
                 J_theta_phi[i,t_ind,p_ind] += objective(u[i-1],
                         s0,theta0,dtheta,phi0,dphi)/n_steps
     return J_theta_phi 
+
+@jit(nopython=True)
+def preprocess_objective(J_theta_phi):
+    n_steps = J_theta_phi.shape[0]
+    integral_J = zeros(J_theta_phi.shape)
+    integral_J[-1] = copy(J_theta_phi[-1])
+    for i in range(n_steps-1,0,-1):
+        integral_J[i-1] = integral_J[i] + J_theta_phi[i-1]
+    return integral_J
+
 
 @jit(nopython=True)
 def compute_gradient_objective(u,s0,n_steps,n_theta=25,n_phi=25):
@@ -120,11 +139,22 @@ def compute_finite_difference_sensitivity(n_samples,s0,n_points_theta, \
         up = copy(up_traj[-1])
     return dJds_fd
 
- 
+@jit(nopython=True)
+def compute_correlation_Jg(cumsum_J, \
+        ddfds,n_samples):
+    temp_array = zeros(cumsum_J.shape)
+    for i in range(n_samples):
+        temp_array[i] = cumsum_J[i]*ddfds[i]
+    return temp_array[:n_samples].sum(0)
+
+
+
 
 if __name__ == '__main__':
-    n_steps = int(T / dt) * 1000
+    n_samples = int(T / dt) * 1000
     n_runup = int(T / dt) * 100
+    n_converge = int(T / dt)* 10
+    n_steps = n_samples + n_converge
     n_points_theta = 20
     n_points_phi = 20
     dtheta = pi/(n_points_theta-1)
@@ -156,7 +186,8 @@ if __name__ == '__main__':
     source_tangent = zeros((n_steps,param_dim,state_dim))
     dJds_stable = zeros((n_points_theta,n_points_phi))
     dJds_unstable = zeros((n_points_theta,n_points_phi))
-     
+    divdfds = zeros(n_steps)
+
     t0 = clock()
     u = solve_primal(u_init, n_steps, s0)
     t1 = clock()
@@ -166,52 +197,57 @@ if __name__ == '__main__':
     t3 = clock()
     w0 = solve_unstable_adjoint_direction(u, w0_init, n_steps, s0, dJ0)
     t4 = clock()
-    #J_theta_phi = compute_objective(u,s0,n_steps,n_points_theta,n_points_phi)
+    J_theta_phi = compute_objective(u,s0,n_steps,n_points_theta,n_points_phi)
     t5 = clock()
     #DJ_theta_phi = compute_gradient_objective(u,s0,n_steps,n_points_theta,n_points_phi)
     t6 = clock()
     source_inverse_adjoint = compute_source_inverse_adjoint(u,n_steps,s0)
     t7 = clock()
+    t8 = clock()
+    divdfds = (compute_source_sensitivity(u,n_steps,s0))[:,0]
+    t9 = clock()
+
     print('='*50)
-    print("Pre-computation times for {:>10d} steps".format(n_steps))
+    print("Pre-computation times for {:>10d} steps".format(n_samples))
     print('='*50)
-    print('{:<25s}{:>16.10f}'.format("primal", t1-t0))
-    print('{:<25s}{:>16.10f}'.format("tangent",t2 - t1)) 
-    print('{:<25s}{:>16.10f}'.format("tangent source", t3 - t2))
-    print('{:<25s}{:>16.10f}'.format("adjoint ", t4 - t3))
-    print('{:<25s}{:>16.10f}'.format("inverse adjoint source", t7 - t6))
-    print('{:<25s}{:>16.10f}'.format("objective ", t5 - t4)) 
-    print('{:<25s}{:>16.10f}'.format("gradient objective ", t6 - t5))
+    print('{:<35s}{:>16.10f}'.format("primal", t1-t0))
+    print('{:<35s}{:>16.10f}'.format("tangent",t2 - t1)) 
+    print('{:<35s}{:>16.10f}'.format("tangent source", t3 - t2))
+    print('{:<35s}{:>16.10f}'.format("adjoint ", t4 - t3))
+    print('{:<35s}{:>16.10f}'.format("inverse adjoint source", t7 - t6))
+    print('{:<35s}{:>16.10f}'.format("objective ", t5 - t4)) 
+    print('{:<35s}{:>16.10f}'.format("gradient objective ", t6 - t5))
+    print('{:<35s}{:>16.10f}'.format("divergence tangent source ", t9 - t8))
     print('*'*50)
     print("End of pre-computation")
     print('*'*50)
 
-    '''
-    tt = clock()
-    dJds_fd = compute_finite_difference_sensitivity(10,s0,20,20)
-    print("Time taken for 10 samples is {:<10f}".format(clock()-tt))
-    figure()
-    phi_grid = linspace(-pi,pi,n_points_phi)
-    theta_grid = linspace(0.,pi,n_points_theta)
-    contourf(phi_grid,theta_grid,dJds_fd)
-    xlabel(r"$\theta$")
-    ylabel(r"$\phi$")
-    colorbar()
-    savefig("sensitivity_finite_difference")
-    '''
-
-     
+    
+    print('='*50)
+    print("Computation times for sensitivity source terms")
+    print('='*50)
+    t10 = clock()
+    cumsum_J_theta_phi = preprocess_objective(J_theta_phi) 
+    t11 = clock()
+    correlation_J_divDfDs = compute_correlation_Jg(cumsum_J_theta_phi, \
+            divdfds,n_samples)
+    t12 = clock()
+    print('{:<35s}{:>16.10f}'.format("Preprocessing objective", t11-t10))
+    print('{:<35s}{:>16.10f}'.format("objective source correlation", t12-t11))
+    
+    
     ds1 = copy(ds0)
     ds1[0] = 1.0
-    n_steps = 2 
-    for i in range(n_steps-1):
+    '''
+    for i in range(n_adjoint_converge + n_steps-1):
         v = tangent_step(v,u[i],s0,ds1) 
         v,vcheck= decompose_tangent(v,v0[i+1],w0[i+1])
         w_inv = adjoint_step(w_inv,u[i],s0,dJ0) + source_inverse_adjoint[i]*dt
         w_inv,wcheck= decompose_adjoint(w_inv,v0[i+1],w0[i+1]) 
-        dJds_stable += dot(DJ_theta_phi[i],v)/n_steps
-        for j in range(i,n_steps): 
-            dJds_unstable -= J_theta_phi[i]*(divdfds[0,i+1] +
+        if(i > n_adjoint_converge):
+            dJds_stable += dot(DJ_theta_phi[i],v)/n_steps
+            for j in range(i,n_steps): 
+                dJds_unstable -= J_theta_phi[i]*(divdfds[0,i+1] +
                         dot(dfds[:,0,i+1],w_inv))
             
-       
+    '''       

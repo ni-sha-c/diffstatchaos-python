@@ -331,19 +331,33 @@ def divGradfs(u,s):
     return dgf
 
 	
-
+@jit(nopython=True)
 def divDfDs(u,s):
 
-    epsi = 1.e-8
-    dpfps = zeros(p)
-    v = zeros(d)
-    for i in range(d):
-        v = zeros(d)
-        v[i] = 1.0
-        dpfps += ((DfDs(u + epsi*v,s) - 
-            DfDs(u - epsi*v,s))[i,:])/(2.0*epsi)
-    return dpfps
-
+    param_dim = s.size
+    ddfds = zeros(param_dim)
+    x = u[0]
+    y = u[1]
+    z = u[2]
+    t = u[3]
+    r2 = x**2 + y**2 + z**2	
+    r = sqrt(r2)
+    t = t%T
+    sigma = diff_rot_freq(t)
+    a = rot_freq(t)
+    coeff2 = s[0]*(1. - sigma*sigma - a*a)
+    coeff3 = s[1]*a*a*(1.0 - r)		
+    dcoeff2_ds1 = coeff2/s[0]
+    dcoeff3_ds2 = coeff3/s[1]
+    d2coeff3_ds2dx = a*a*(-x/r)
+    d2coeff3_ds2dy = a*a*(-y/r)
+    d2coeff3_ds2dz = a*a*(-z/r)
+    ddfds[0] = (-1.0*dcoeff2_ds1*y*y + \
+                  dcoeff2_ds1*x*x)
+    ddfds[1] = (dcoeff3_ds2 + d2coeff3_ds2dx*x + \
+               dcoeff3_ds2 + d2coeff3_ds2dy*y + \
+                  dcoeff3_ds2 + d2coeff3_ds2dz)
+    return ddfds 
 
 @jit(nopython=True)
 def tangent_step(v0,u,s,ds):
