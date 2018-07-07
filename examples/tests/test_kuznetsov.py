@@ -8,7 +8,7 @@ from matplotlib.pyplot import *
 from pylab import *
 from numpy import *
 
-
+n_runup = 100*int(T/dt)
 def visualize_primal():
     u_init = rand(state_dim)
     u_init[3] = 0.0
@@ -20,6 +20,29 @@ def visualize_primal():
     figure()
     plot(stereo_real, stereo_imag, '.', ms=1)
     savefig('st_proj_attractor.png')
+
+def visualize_poincare_primal():
+    u_init = rand(state_dim)
+    u_init = poincare_step(u_init,s0,n_runup)
+    n_steps = 10000
+    u = solve_poincare_primal(u_init,n_steps,s0)
+    stereo_real, stereo_imag = stereographic_projection(u.T)
+    figure()
+    plot(stereo_real, stereo_imag, '.', ms=4)
+    savefig('st_proj_poincare_attractor.png')
+
+
+@jit(nopython=True)
+#if __name__ == "__main__":
+def test_poincare_primal():
+    u_init = rand(state_dim)
+    u_init = poincare_step(u_init,s0,n_runup)
+    u_init[-1] = 0.
+    n_steps = 1000
+    u = solve_poincare_primal(u_init,n_steps,s0)
+    u_ode = solve_primal(u_init,n_steps*int(T/dt),s0)
+    print(norm(u_ode[::int(T/dt)]-u))
+
 
 @jit(nopython=True)
 #if __name__ == "__main__":
@@ -174,6 +197,67 @@ def test_jacobian():
     print(norm(v2_fd - v2_hand))
 
 
+#if __name__ == "__main__":
+def test_poincare_halfstep_Jacobian():
+    n_test = 100
+    state_dim = 4
+    u = rand(n_test,state_dim)
+    u[:,3] = 0.0
+    n_epsi = 10
+    epsi = logspace(-n_epsi,-1.0,n_epsi)
+    dFdu_fd = zeros((n_epsi,n_test,state_dim,state_dim))
+    dFdu = zeros((n_test,state_dim,state_dim))
+    for i in range(n_test):
+        dFdu[i] = gradFs_poincare_halfstep(u[i],s0,-1,-1)
+        for j in range(n_epsi):
+            for k in range(state_dim):
+                v = zeros(state_dim)
+                v[k] = 1.0
+                dFdu_fd[j,i,:,k] = (poincare_half_step(u[i] + epsi[j]*v,s0,-1,-1) \
+                        - poincare_half_step(u[i] - epsi[j]*v,s0,-1,-1))/(2*epsi[j])
+                
+    err_poincare_jacobian = zeros(n_epsi)
+    for j in range(n_epsi):
+        err_poincare_jacobian[j] = norm(dFdu_fd[j]-dFdu)
+    figure()
+    loglog(epsi,err_poincare_jacobian)
+    xlabel(r"$\epsilon$")
+    ylabel("Error in Jacobian of Poincare half step")
+    savefig("errJacobianHalfPoincare")
+    assert(min(err_poincare_jacobian) < 1.e-8)
+
+
+#if __name__ == "__main__":
+def test_poincare_Jacobian():
+    n_test = 100
+    state_dim = 4
+    u = rand(n_test,state_dim)
+    u[:,3] = 0.0
+    n_epsi = 10
+    epsi = logspace(-n_epsi,-1.0,n_epsi)
+    dFdu_fd = zeros((n_epsi,n_test,state_dim,state_dim))
+    dFdu = zeros((n_test,state_dim,state_dim))
+    for i in range(n_test):
+        dFdu[i] = gradFs_poincare(u[i],s0)
+        for j in range(n_epsi):
+            for k in range(state_dim):
+                v = zeros(state_dim)
+                v[k] = 1.0
+                dFdu_fd[j,i,:,k] = (poincare_step(u[i] + epsi[j]*v,s0) \
+                        - poincare_step(u[i] - epsi[j]*v,s0))/(2*epsi[j])
+                
+    err_poincare_jacobian = zeros(n_epsi)
+    for j in range(n_epsi):
+        err_poincare_jacobian[j] = norm(dFdu_fd[j]-dFdu)
+    figure()
+    loglog(epsi,err_poincare_jacobian)
+    xlabel(r"$\epsilon$")
+    ylabel("Error in Jacobian of Poincare step")
+    savefig("errJacobianPoincare")
+    assert(min(err_poincare_jacobian) < 1.e-8)
+
+        
+
 def test_DfDs():
     u0 = rand(4)
     u0[3] *= T
@@ -200,6 +284,35 @@ def test_DfDs():
     savefig('err_dfds')
 
     assert(min(err_dfds) < 1.e-8)
+
+if __name__ == "__main__":
+#def test_poincare_DfDs():
+    u0 = rand(4)
+    u0[3] *= 0.
+    n_epsi = 10
+    param_dim = s0.size
+    epsi = logspace(-n_epsi,-1.0,n_epsi)
+    dfds_fd = zeros((n_epsi,param_dim,state_dim))
+    dfds_ana = zeros((param_dim,state_dim))
+    for i in range(param_dim):
+        for k in range(n_epsi):
+            splus = copy(s0)
+            splus[i] += epsi[k]
+            sminus = copy(s0)
+            sminus[i] -= epsi[k]
+
+            dfds_fd[k,i] = (poincare_step(u0,splus) - 
+                            poincare_step(u0,sminus))/(2.0*epsi[k])
+    err_dfds = zeros(n_epsi)
+    dfds_ana = DfDs_poincare(u0,s0)
+    for k in range(n_epsi):
+        err_dfds[k] = norm(dfds_fd[k]-dfds_ana)
+    figure()
+    loglog(epsi,err_dfds, 'o-')
+    savefig('err_dfds_poincare')
+
+    assert(min(err_dfds) < 1.e-8)
+
 
 
 #if __name__=="__main__":

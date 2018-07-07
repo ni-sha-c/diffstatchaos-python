@@ -22,6 +22,16 @@ def solve_primal(u_init, n_steps, s):
     return u
 
 @jit(nopython=True)
+def solve_poincare_primal(u_init, n_steps, s):
+    print("here")
+    u = empty((n_steps, u_init.size))
+    u[0] = u_init
+    for i in range(1,n_steps):
+        u[i] = poincare_step(u[i-1],s)
+    return u
+
+
+@jit(nopython=True)
 def solve_unstable_direction(u, v_init, n_steps, s, ds):
     v = empty((n_steps, v_init.size))
     v[0] = v_init
@@ -149,7 +159,7 @@ def compute_correlation_Jg(cumsum_J, \
 
 
 @jit(nopython=True)
-def compute_sensitivity(u,s0,v0,w0,dJ,ds,dfds,cumsumJ,N):
+def compute_sensitivity(u,s0,v0,w0,dJ,ds,dfds,cumsumJ,N,Ninf):
     N_padded = u.shape[0]
     v = zeros(state_dim)
     dJ0 = zeros(state_dim)
@@ -166,7 +176,7 @@ def compute_sensitivity(u,s0,v0,w0,dJ,ds,dfds,cumsumJ,N):
         if(i < N):
             for t1 in range(ntheta):
                 for p1 in range(nphi):
-                    dJds_stable += dot(DJ_theta_phi[i,t1,p1],v)/N
+                    dJds_stable += dot(DJ_theta_phi[i+1,t1,p1],v)/N
             dJds_unstable -= cumsumJ[i]*( \
                             dot(dfds[i+1],w_inv))/N
     return dJds_stable,dJds_unstable 
@@ -270,7 +280,7 @@ if __name__ == '__main__':
     t14 = clock()
     print('{:<35s}{:>16.10f}'.format("time taken",t14-t13))
     print('End of computation...')
-    dJds_unstable += correlation_J_divDfDs
+    dJds_unstable -= correlation_J_divDfDs
 
     dJds = dJds_stable + dJds_unstable
     theta = linspace(0,pi,n_points_theta)

@@ -45,6 +45,47 @@ def primal_step(u0,s,n=1):
     return u
 
 @jit(nopython=True)
+def poincare_step(u0,s,n=1):
+    state_dim= u0.size
+    param_dim= s.size
+    u = copy(u0)
+    for i in range(n):
+        u = poincare_halfstep(u,s,-1.,-1.)
+        u = poincare_halfstep(u,s,1.,1.)
+    u[3] = u0[3]
+    return u
+
+@jit(nopython=True)
+def poincare_halfstep(u,s0,sigma,a):
+    emmu = exp(-s0[1])
+    x = u[0]
+    y = u[1]
+    z = u[2]
+    r2 = (x**2.0 + y**2.0 + z**2.0)
+    r = sqrt(r2)
+    rxy2 = x**2.0 + y**2.0
+    rxy = sqrt(rxy2)
+    em2erxy2 = exp(-2.0*s0[0]*rxy2)
+    emerxy2 = exp(-s0[0]*rxy2)
+    term = pi*0.5*(z*sqrt(2) + 1)
+    sterm = sin(term)
+    cterm = cos(term)
+
+    coeff1 = 1.0/((1.0 - emmu)*r + emmu)
+    coeff2 = rxy/sqrt((x**2.0)*em2erxy2 + \
+            (y**2.0))
+
+    u1 = copy(u)
+    u1[0] = coeff1*a*z
+    u1[1] = coeff1*coeff2*(sigma*x*emerxy2*sterm + \
+            y*cterm)
+    u1[2] = coeff1*coeff2*(-a*x*emerxy2*cterm + \
+            a*sigma*y*sterm)
+    u1[3] = (u[3] + T/2.0)%T
+
+    return u1
+
+@jit(nopython=True)
 def objective(u,s,theta0,dtheta,phi0,dphi):
     r = sqrt(u[0]**2.0 + u[1]**2.0 + u[2]**2.0)
     theta = 0.0
@@ -143,7 +184,7 @@ def convert_to_spherical(u):
     phi = arctan2(y,x)
     return r,theta,phi
 
-
+@jit(nopython=True)
 def stereographic_projection(u):
     x = u[0]
     y = u[1]
@@ -182,6 +223,61 @@ def tangent_source(v0, u, s, ds):
     return v
 
 @jit(nopython=True)
+def tangent_source_half_poincare(v,u,s0,ds,sigma,a):
+    emmu = exp(-s0[1])
+    x = u[0]
+    y = u[1]
+    z = u[2]
+    r2 = (x**2.0 + y**2.0 + z**2.0)
+    r = sqrt(r2)
+    rxy2 = x**2.0 + y**2.0
+    rxy = sqrt(rxy2)
+    em2erxy2 = exp(-2.0*s0[0]*rxy2)
+    emerxy2 = exp(-s0[0]*rxy2)
+    term = pi*0.5*(z*sqrt(2) + 1)
+    sterm = sin(term)
+    cterm = cos(term)
+
+    coeff1 = 1.0/((1.0 - emmu)*r + emmu)
+    coeff2 = rxy/sqrt((x**2.0)*em2erxy2 + \
+            (y**2.0))
+
+    dem2erxy2_ds1 = em2erxy2*(-2.0*rxy2)
+    demerxy2_ds1 = emerxy2*(-rxy2)
+    dcoeff1_ds2 = -coeff1*coeff1*(r*emmu - emmu)
+    dcoeff2_ds1 = -0.5*rxy/(sqrt((x**2.0)*em2erxy2 + \
+            (y**2.0)))**3.0*((x**2.0)*dem2erxy2_ds1)
+
+
+    v1 = copy(v)
+    v1[0] += a*z*dcoeff1_ds2*ds[1]
+    v1[1] += (dcoeff1_ds2*ds[1]*coeff2 + \
+            dcoeff2_ds1*ds[0]*coeff1)*(sigma*x*emerxy2*sterm + \
+            y*cterm) + coeff1*coeff2*(sigma*x*demerxy2_ds1\
+            *ds[0]*sterm)
+
+    v1[2] += (dcoeff1_ds2*ds[1]*coeff2 + \
+            dcoeff2_ds1*ds[0]*coeff1)*(-a*x*emerxy2*cterm + \
+            a*sigma*y*sterm) + coeff1*coeff2* \
+        (-a*x*cterm*demerxy2_ds1*ds[0])
+        
+
+    return v1
+
+
+@jit(nopython=True)
+def tangent_source_poincare(v,u,s,ds):
+    uhalf = poincare_halfstep(u,s,-1.,-1)
+    vhalf = tangent_source_half_poincare(v,uhalf,s,ds,1.,1.)
+    vfull = vhalf + dot(gradFs_poincare_halfstep(uhalf,s,1.,1.),\
+            tangent_source_half_poincare(zeros(state_dim),\
+            u,s,ds,-1,-1))
+    return vfull
+
+
+
+
+@jit(nopython=True)
 def DfDs(u,s):
     param_dim = s.size
     dfds = zeros((param_dim,state_dim))
@@ -191,6 +287,16 @@ def DfDs(u,s):
     dfds[1] = tangent_source(zeros(state_dim),u,s,ds2)
     return dfds
 
+
+@jit(nopython=True)
+def DfDs_poincare(u,s):
+    param_dim = s.size
+    dfds = zeros((param_dim,state_dim))
+    ds1 = array([1.0, 0.0])
+    ds2 = array([0.0, 1.0])
+    dfds[0] = tangent_source_poincare(zeros(state_dim),u,s,ds1)
+    dfds[1] = tangent_source_poincare(zeros(state_dim),u,s,ds2)
+    return dfds
 
 
 def gradfs(u,s):
@@ -266,6 +372,107 @@ def gradfs(u,s):
 	dFdu[2,3] = (-0.5*pi*x*da_dt + dcoeff3_dt*z)
 
 	return dFdu
+
+
+@jit(nopython=True)
+def gradFs_poincare_halfstep(u,s,sigma,a):
+    emmu = exp(-s0[1])
+    x = u[0]
+    y = u[1]
+    z = u[2]
+    r2 = (x**2.0 + y**2.0 + z**2.0)
+    r = sqrt(r2)
+    rxy2 = x**2.0 + y**2.0
+    rxy = sqrt(rxy2)
+    em2erxy2 = exp(-2.0*s0[0]*rxy2)
+    emerxy2 = exp(-s0[0]*rxy2)
+    term = pi*0.5*(z*sqrt(2) + 1)
+    sterm = sin(term)
+    cterm = cos(term)
+
+    coeff1 = 1.0/((1.0 - emmu)*r + emmu)
+    coeff2 = rxy/sqrt((x**2.0)*em2erxy2 + \
+            (y**2.0))
+
+    dem2erxy2_dx = exp(-2.0*s0[0]*rxy2)*(-2.0*s0[0])*(2.0*x)
+    dem2erxy2_dy = exp(-2.0*s0[0]*rxy2)*(-2.0*s0[0])*(2.0*y)
+    demerxy2_dx = exp(-s0[0]*rxy2)*(-s0[0])*(2.0*x)
+    demerxy2_dy = exp(-s0[0]*rxy2)*(-s0[0])*(2.0*y)
+    dterm_dz = pi*0.5*sqrt(2)
+    dsterm_dz = cos(term)*dterm_dz
+    dcterm_dz = -sin(term)*dterm_dz
+    
+    dcoeff1_dx = -coeff1*coeff1*(1.0 - emmu)*x/r
+    dcoeff1_dy = -coeff1*coeff1*(1.0 - emmu)*y/r
+    dcoeff1_dz = -coeff1*coeff1*(1.0 - emmu)*z/r
+
+    dcoeff2_dx = x/rxy/sqrt((x**2.0)*em2erxy2 + \
+            (y**2.0)) - 0.5*rxy/(sqrt((x**2.0)*em2erxy2 + \
+            (y**2.0)))**3.0*(2.0*x*em2erxy2 + x*x*dem2erxy2_dx)
+
+    dcoeff2_dy = y/rxy/sqrt((x**2.0)*em2erxy2 + \
+            (y**2.0)) - 0.5*rxy/(sqrt((x**2.0)*em2erxy2 + \
+            (y**2.0)))**3.0*(x*x*dem2erxy2_dy + 2.0*y)
+
+    
+    dcoeff1_ds2 = -coeff1*coeff1*(-emmu + r*emmu)
+    dcoeff2_ds1 = -0.5*rxy/(sqrt((x**2.0)*em2erxy2 + \
+            (y**2.0)))**3.0*(x*x*em2erxy2*(-2.0*rxy2))
+
+    state_dim = u.shape[0]
+    dFdu = zeros((state_dim,state_dim))
+    dFdu[0,0] = dcoeff1_dx*a*z
+    dFdu[0,1] = dcoeff1_dy*a*z
+    dFdu[0,2] = dcoeff1_dz*a*z + coeff1*a
+    
+    dFdu[1,0] = (sigma*x*emerxy2*sterm + \
+            y*cterm)*(dcoeff1_dx*coeff2 + \
+            coeff1*dcoeff2_dx) + coeff1*coeff2*\
+            (sigma*emerxy2*sterm + sigma*x*demerxy2_dx*sterm)
+
+
+    dFdu[1,1] = (sigma*x*emerxy2*sterm + \
+            y*cterm)*(dcoeff1_dy*coeff2 + coeff1*dcoeff2_dy) + \
+            coeff1*coeff2*(sigma*x*sterm*demerxy2_dy + \
+            cterm)
+
+    dFdu[1,2] =  (sigma*x*emerxy2*sterm + \
+            y*cterm)*(dcoeff1_dz*coeff2) + \
+            coeff1*coeff2*(sigma*x*emerxy2*dsterm_dz + \
+            y*dcterm_dz)
+
+
+    dFdu[2,0] = (-a*x*emerxy2*cterm + \
+            a*sigma*y*sterm)*(coeff1*dcoeff2_dx + \
+            coeff2*dcoeff1_dx) + coeff1*coeff2* \
+            (-a*emerxy2*cterm - a*x*demerxy2_dx*cterm)
+
+
+    dFdu[2,1] = (-a*x*emerxy2*cterm + \
+            a*sigma*y*sterm)*(coeff1*dcoeff2_dy + \
+            dcoeff1_dy*coeff2) + coeff1*coeff2* \
+            (-a*x*demerxy2_dy*cterm + a*sigma*sterm)
+
+
+    dFdu[2,2] = dcoeff1_dz*coeff2*(-a*x*emerxy2*cterm + \
+            a*sigma*y*sterm) + coeff1*coeff2*( \
+            -a*x*emerxy2*dcterm_dz + a*sigma*y*dsterm_dz)
+
+
+    dFdu[3,3] = 1.0
+
+    return dFdu
+
+
+@jit(nopython=True)
+def gradFs_poincare(u,s):
+
+    u_nphalf = poincare_halfstep(u,s,-1,-1)
+    gradFs_half = gradFs_poincare_halfstep(u,s,-1,-1)
+    gradFs_full = gradFs_poincare_halfstep(u_nphalf,s,1,1)
+    return dot(gradFs_full,gradFs_half)
+
+
 
 @jit(nopython=True)
 def divGradfs(u,s):
