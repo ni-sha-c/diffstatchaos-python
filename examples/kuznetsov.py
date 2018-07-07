@@ -276,7 +276,6 @@ def tangent_source_poincare(v,u,s,ds):
 
 
 
-
 @jit(nopython=True)
 def DfDs(u,s):
     param_dim = s.size
@@ -537,7 +536,24 @@ def divGradfs(u,s):
             d2coeff3_dzdt*z + dcoeff3_dt)
     return dgf
 
-	
+
+@jit(nopython=True)
+def divGradFsinv(u,s):
+    epsi = 1.e-4
+    div_DFDu_inv = zeros(state_dim)
+    #I have no better choice here.
+    for i in range(state_dim):
+        uplus = copy(u)
+        uminus = copy(u)
+        uplus[i] += epsi
+        umins[i] -= epsi
+        DFDu_inv_plus = inv(gradFs_poincare(uplus,s))
+        DFDu_inv_minus = inv(gradFs_poincare(uminus,s))
+        div_DFDu_inv[i] = (DFDu_inv_plus - DFDu_inv_minus)/ \
+                (2*epsi)
+    return div_DFDu_inv
+
+
 @jit(nopython=True)
 def divDfDs(u,s):
 
