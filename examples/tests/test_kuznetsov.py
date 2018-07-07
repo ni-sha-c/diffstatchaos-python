@@ -286,7 +286,7 @@ def test_DfDs():
     assert(min(err_dfds) < 1.e-8)
 
 if __name__ == "__main__":
-#def test_poincare_DfDs():
+#def test_poincare_DFDs():
     u0 = rand(4)
     u0[3] *= 0.
     n_epsi = 10
@@ -304,7 +304,7 @@ if __name__ == "__main__":
             dfds_fd[k,i] = (poincare_step(u0,splus) - 
                             poincare_step(u0,sminus))/(2.0*epsi[k])
     err_dfds = zeros(n_epsi)
-    dfds_ana = DfDs_poincare(u0,s0)
+    dfds_ana = DFDs_poincare(u0,s0)
     for k in range(n_epsi):
         err_dfds[k] = norm(dfds_fd[k]-dfds_ana)
     figure()

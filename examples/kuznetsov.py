@@ -288,7 +288,7 @@ def DfDs(u,s):
 
 
 @jit(nopython=True)
-def DfDs_poincare(u,s):
+def DFDs_poincare(u,s):
     param_dim = s.size
     dfds = zeros((param_dim,state_dim))
     ds1 = array([1.0, 0.0])
@@ -552,6 +552,21 @@ def divGradFsinv(u,s):
         div_DFDu_inv[i] = (DFDu_inv_plus - DFDu_inv_minus)/ \
                 (2*epsi)
     return div_DFDu_inv
+
+@jit(nopython=True)
+def trace_gradDFDs_gradFsinv(u,s,ds):
+    epsi = 1.e-4
+    DFDuinv = inv(gradFs_poincare(u,s))
+    res = 0.0
+    for i in range(state_dim):
+        uplus = copy(u)
+        uminus = copy(u)
+        uplus[i] += epsi
+        uminus[i] -= epsi
+        diDFDs = (DFDs_poincare(uplus,s) - DFDs_poincare(uminus,s))/(2*epsi)
+        res += dot(diDFDs,DFDuinv[i])
+    return res
+
 
 
 @jit(nopython=True)

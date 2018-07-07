@@ -12,19 +12,63 @@ from numpy import *
 from time import clock
 from util import *
 
+@jit(nopython=True)
+def solve_poincare_primal(u_init, n_steps, s):
+    u = empty((n_steps, u_init.size))
+    u[0] = u_init
+    for i in range(1,n_steps):
+        u[i] = poincare_step(u[i-1],s)
+    return u
+
+@jit(nopython=True)
+def compute_objective(u,s0,n_steps,n_theta=25,n_phi=25):
+    theta_bin_centers = linspace(0,pi,n_theta)
+    phi_bin_centers = linspace(-pi,pi,n_phi)
+    dtheta = pi/(n_theta-1)
+    dphi = 2*pi/(n_phi-1)
+    J_theta_phi = zeros((n_steps,n_theta,n_phi))
+    for i in arange(1,n_steps):
+        for t_ind, theta0 in enumerate(theta_bin_centers):
+            for p_ind, phi0 in enumerate(phi_bin_centers):
+                J_theta_phi[i,t_ind,p_ind] += objective(u[i-1],
+                        s0,theta0,dtheta,phi0,dphi)/n_steps
+    return J_theta_phi 
+
+@jit(nopython=True)
+def preprocess_objective(J_theta_phi):
+    n_steps = J_theta_phi.shape[0]
+    integral_J = zeros(J_theta_phi.shape)
+    integral_J[-1] = copy(J_theta_phi[-1])
+    for i in range(n_steps-1,0,-1):
+        integral_J[i-1] = integral_J[i] + J_theta_phi[i-1]
+    return integral_J
+
+
+@jit(nopython=True)
+def compute_gradient_objective(u,s0,n_steps,n_theta=25,n_phi=25):
+    theta_bin_centers = linspace(0,pi,n_theta)
+    phi_bin_centers = linspace(-pi,pi,n_phi)
+    dtheta = pi/(n_theta-1)
+    dphi = 2*pi/(n_phi-1)
+    DJ_theta_phi = zeros((n_steps,n_theta,n_phi,state_dim))
+    for i in arange(1,n_steps):
+        for t_ind, theta0 in enumerate(theta_bin_centers):
+            for p_ind, phi0 in enumerate(phi_bin_centers):
+                DJ_theta_phi[i,t_ind,p_ind] += Dobjective(u[i-1],
+                        s0,theta0,dtheta,phi0,dphi)
+    return DJ_theta_phi 
+
 
 
 if __name__ == "__main__":
 #def compute_sensitivity()
 
-	n_converge = 10
-	n_adjoint_converge = 10
-	n_samples = 50000
-	n_runup = 1000
-
-	n_steps = n_samples + n_converge +\
+    n_converge = 10
+    n_adjoint_converge = 10
+    n_samples = 50000
+    n_runup = 1000
+    n_steps = n_samples + n_converge +\
             n_adjoint_converge + 1 
-			
     n_points_theta = 20
     n_points_phi = 20
     dtheta = pi/(n_points_theta-1)
@@ -59,8 +103,9 @@ if __name__ == "__main__":
     divdfds = zeros(n_steps)
 
     t0 = clock()
-    u = solve_primal(u_init, n_steps, s0)
+    u = solve_poincare_primal(u_init, n_steps, s0)
     t1 = clock()
+    '''
     v0 = solve_unstable_direction(u, v0_init, n_steps, s0, ds0)
     t2 = clock()
     source_tangent = compute_source_tangent(u,n_steps,s0)[:,0,:] 
@@ -147,4 +192,4 @@ if __name__ == "__main__":
 			
 		
 	
-
+    '''

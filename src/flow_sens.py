@@ -21,15 +21,6 @@ def solve_primal(u_init, n_steps, s):
         u[i] = primal_step(u[i-1],s)
     return u
 
-@jit(nopython=True)
-def solve_poincare_primal(u_init, n_steps, s):
-    print("here")
-    u = empty((n_steps, u_init.size))
-    u[0] = u_init
-    for i in range(1,n_steps):
-        u[i] = poincare_step(u[i-1],s)
-    return u
-
 
 @jit(nopython=True)
 def solve_unstable_direction(u, v_init, n_steps, s, ds):
