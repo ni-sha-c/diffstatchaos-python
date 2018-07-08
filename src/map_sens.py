@@ -21,6 +21,33 @@ def solve_poincare_primal(u_init, n_steps, s):
     return u
 
 @jit(nopython=True)
+def solve_poincare_unstable_direction(u, v_init, n_steps, s, ds):
+    v = empty((n_steps, v_init.size))
+    v[0] = v_init
+    for i in range(1,n_steps):
+        v[i] = tangent_poincare_step(v[i-1],u[i-1],s,ds)
+        v[i] /= linalg.norm(v[i])
+    return v
+
+
+@jit(nopython=True)
+def compute_poincare_source_tangent(u, n_steps, s0):
+    param_dim = s0.size
+    dFds = zeros((n_steps,param_dim,state_dim))
+    for i in range(n_steps):
+        dFds[i] = DFDs_poincare(u[i],s0)
+    return dFds
+
+@jit(nopython=True)
+def compute_poincare_source_inverse_adjoint(u, n_steps, s0):
+    dgf = zeros((n_steps,state_dim))
+    for i in range(n_steps):
+        dgf[i] = divGradFsinv_poincare(u[i],s0)
+    return dgf
+
+
+
+@jit(nopython=True)
 def compute_objective(u,s0,n_steps,n_theta=25,n_phi=25):
     theta_bin_centers = linspace(0,pi,n_theta)
     phi_bin_centers = linspace(-pi,pi,n_phi)
@@ -105,19 +132,17 @@ if __name__ == "__main__":
     t0 = clock()
     u = solve_poincare_primal(u_init, n_steps, s0)
     t1 = clock()
-    '''
-    v0 = solve_unstable_direction(u, v0_init, n_steps, s0, ds0)
+    v0 = solve_poincare_unstable_direction(u, v0_init, n_steps, s0, ds0)
     t2 = clock()
-    source_tangent = compute_source_tangent(u,n_steps,s0)[:,0,:] 
+    source_tangent = compute_poincare_source_tangent(u,n_steps,s0)[:,0,:] 
     t3 = clock()
-    w0 = solve_unstable_adjoint_direction(u, w0_init, n_steps, s0, dJ0)
-    t4 = clock()
     J_theta_phi = compute_objective(u,s0,n_steps,n_points_theta,n_points_phi)
     t5 = clock()
     DJ_theta_phi = compute_gradient_objective(u,s0,n_steps,n_points_theta,n_points_phi)
     t6 = clock()
-    source_inverse_adjoint = compute_source_inverse_adjoint(u,n_steps,s0)
+    source_inverse_adjoint = compute_poincare_source_inverse_adjoint(u,n_steps,s0)
     t7 = clock()
+    '''
     t8 = clock()
     divdfds = (compute_source_sensitivity(u,n_steps,s0))[:,0]
     t9 = clock()

@@ -285,8 +285,8 @@ def test_DfDs():
 
     assert(min(err_dfds) < 1.e-8)
 
-if __name__ == "__main__":
-#def test_poincare_DFDs():
+#if __name__ == "__main__":
+def test_poincare_DFDs():
     u0 = rand(4)
     u0[3] *= 0.
     n_epsi = 10

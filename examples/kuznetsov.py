@@ -538,7 +538,7 @@ def divGradfs(u,s):
 
 
 @jit(nopython=True)
-def divGradFsinv(u,s):
+def divGradFsinv_poincare(u,s):
     epsi = 1.e-4
     div_DFDu_inv = zeros(state_dim)
     #I have no better choice here.
@@ -546,10 +546,10 @@ def divGradFsinv(u,s):
         uplus = copy(u)
         uminus = copy(u)
         uplus[i] += epsi
-        umins[i] -= epsi
-        DFDu_inv_plus = inv(gradFs_poincare(uplus,s))
-        DFDu_inv_minus = inv(gradFs_poincare(uminus,s))
-        div_DFDu_inv[i] = (DFDu_inv_plus - DFDu_inv_minus)/ \
+        uminus[i] -= epsi
+        DFDu_inv_plus = inv(gradFs_poincare(uplus,s))[i]
+        DFDu_inv_minus = inv(gradFs_poincare(uminus,s))[i]
+        div_DFDu_inv += (DFDu_inv_plus - DFDu_inv_minus)/ \
                 (2*epsi)
     return div_DFDu_inv
 
@@ -674,7 +674,13 @@ def tangent_step(v0,u,s,ds):
 	return v
 
 
+@jit(nopython=True)
+def tangent_poincare_step(v0,u,s,ds):
 
+    v1 = dot(gradFs_poincare(u,s),v0) 
+    v1 = tangent_source_poincare(v1,u,s,ds)
+    return v1
+	
 
 
 @jit(nopython=True)
