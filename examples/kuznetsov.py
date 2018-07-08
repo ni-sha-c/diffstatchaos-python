@@ -554,10 +554,11 @@ def divGradFsinv_poincare(u,s):
     return div_DFDu_inv
 
 @jit(nopython=True)
-def trace_gradDFDs_gradFsinv(u,s,ds):
+def trace_gradDFDs_gradFsinv(u,s):
     epsi = 1.e-4
     DFDuinv = inv(gradFs_poincare(u,s))
-    res = 0.0
+    param_dim = s.size
+    res = zeros(param_dim)
     for i in range(state_dim):
         uplus = copy(u)
         uminus = copy(u)

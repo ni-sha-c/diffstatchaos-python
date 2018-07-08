@@ -45,6 +45,13 @@ def compute_poincare_source_inverse_adjoint(u, n_steps, s0):
         dgf[i] = divGradFsinv_poincare(u[i],s0)
     return dgf
 
+@jit(nopython=True)
+def compute_poincare_source_sensitivity(u, n_steps, s0):
+    param_dim = s0.size
+    t_ddFds_dFinv = zeros((n_steps,param_dim))
+    for i in range(n_steps):
+        t_ddFds_dFinv[i] = trace_gradDFDs_gradFsinv(u[i],s0)
+    return t_ddFds_dFinv
 
 
 @jit(nopython=True)
@@ -107,6 +114,8 @@ if __name__ == "__main__":
     u_init = poincare_step(u_init,s0,n_runup)
     param_dim = s0.size
     ds0 = zeros(param_dim)
+    ds1 = copy(ds0)
+    ds1[0] = 1.0
     dJ0 = zeros(state_dim)
     
     w0 = zeros((n_steps,state_dim))
@@ -137,32 +146,30 @@ if __name__ == "__main__":
     source_tangent = compute_poincare_source_tangent(u,n_steps,s0)[:,0,:] 
     t3 = clock()
     J_theta_phi = compute_objective(u,s0,n_steps,n_points_theta,n_points_phi)
-    t5 = clock()
+    t4 = clock()
     DJ_theta_phi = compute_gradient_objective(u,s0,n_steps,n_points_theta,n_points_phi)
-    t6 = clock()
+    t5 = clock()
     source_inverse_adjoint = compute_poincare_source_inverse_adjoint(u,n_steps,s0)
+    t6 = clock()
+    unstable_sensitivity_source = (compute_poincare_source_sensitivity(u,n_steps,s0))
     t7 = clock()
-    '''
-    t8 = clock()
-    divdfds = (compute_source_sensitivity(u,n_steps,s0))[:,0]
-    t9 = clock()
 
+    
     print('='*50)
     print("Pre-computation times for {:>10d} steps".format(n_samples))
     print('='*50)
     print('{:<35s}{:>16.10f}'.format("primal", t1-t0))
     print('{:<35s}{:>16.10f}'.format("tangent",t2 - t1)) 
     print('{:<35s}{:>16.10f}'.format("tangent source", t3 - t2))
-    print('{:<35s}{:>16.10f}'.format("adjoint ", t4 - t3))
-    print('{:<35s}{:>16.10f}'.format("inverse adjoint source", t7 - t6))
-    print('{:<35s}{:>16.10f}'.format("objective ", t5 - t4)) 
-    print('{:<35s}{:>16.10f}'.format("gradient objective ", t6 - t5))
-    print('{:<35s}{:>16.10f}'.format("divergence tangent source ", t9 - t8))
+    print('{:<35s}{:>16.10f}'.format("inverse adjoint source", t6 - t5))
+    print('{:<35s}{:>16.10f}'.format("objective ", t4 - t3)) 
+    print('{:<35s}{:>16.10f}'.format("gradient objective ", t5 - t4))
+    print('{:<35s}{:>16.10f}'.format("sensitivity source ", t7 - t6))
     print('*'*50)
     print("End of pre-computation")
     print('*'*50)
 
-		
+    '''	
 	 = zeros(n_bins_theta,n_bins_phi)
 	
 	g = zeros(n_converge,param_dim)
