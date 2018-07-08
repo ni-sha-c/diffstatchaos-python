@@ -93,6 +93,32 @@ def compute_gradient_objective(u,s0,n_steps,n_theta=25,n_phi=25):
     return DJ_theta_phi 
 
 
+@jit(nopython=True)
+def compute_sensitivity(u,s,v0,w0,dJ,dFds,N,Ninf):
+    g = zeros(Ninf)
+    w_inv = zeros(d)
+    v = zeros(d)
+    gsum_mean = 0.0
+    gsum_history = zeros(n_steps)
+    for n = 1:n_steps
+        b = unstable_sensitivity_source[n]
+        q = source_inverse_adjoint[n]
+        nablaFs = gradFs_poincare(u[n],s)
+	w_inv = -1.0*q + solve(nablaFs.T, winv)
+	w_inv = dot(w_inv, v0[n+1]) * v0[n+1]
+        g[n % Ninf] = w_inv*dFds_unstable - b   
+        gsum_mean += sum(g)
+        v = nablaFs*v + dFds[n]
+        gsum_history[n] = sum(g)
+        v, dFds_unstable = decompose(v, v0[n+1], w0[n+1])
+        if(n>=2*Ninf+1):
+	    for binno_t=1:n_bins_t
+		for binno_p=1:n_bins_p
+		    dJds_unstable[binno_t,binno_p] += \
+                            J[n,binno_t,binno_p]*(sum(g))/n_samples
+		    dJds_stable[binno_t,binno_p] += \
+                            dot(dJ[n,binno_t,binno_p], v)/n_samples
+						
 
 if __name__ == "__main__":
 #def compute_sensitivity()
@@ -169,59 +195,6 @@ if __name__ == "__main__":
     print("End of pre-computation")
     print('*'*50)
 
-    '''	
-	 = zeros(n_bins_theta,n_bins_phi)
+    	
 	
-	g = zeros(n_converge,param_dim)
-	ϕhat = zeros(d)
-	v0 = rand(d)
-	v = zeros(d,param_dim)
-	
-	t = linspace(-pi,pi-binsize_t,n_bins_t)
-	r = linspace(0., rmax - binsize_r, n_bins_r)
-		
-	dFds = zeros(d,param_dim)
-	dFds_unstable = zeros(d,param_dim)
-	nablaFsinv = zeros(d,d)
-	gsum_mean = zeros(param_dim)
-	gsum_history = zeros(n_steps,param_dim)
-	for n = 1:n_steps
 
-		dFds = ∂F∂s(u,s) 
-		nablaFs = gradFs(u,s)
-		b = ∇Fsinvcolon∂Fs∂s(u,s)
-		q = div∇Fsinv(u,s)
-		ϕhat = -1.0*q + 
-			transpose(\(nablaFs', ϕhat'))
-		v0 = nablaFs*v0
-		v0 /= norm(v0)
-		ϕhat = dot(ϕhat', v0) * v0'
-		u = Step(u,s,1)
-		for ip=1:param_dim
-			
-			g[(n-1)%n_converge+1,iparam_dim] = ϕhat*dFds_unstable[:,ip] - b[ip]   
-			gsum_mean[ip] += sum(g[:,ip])
-			v[:,ip] = nablaFs*v[:,ip] + dFds[:,ip]
-			gsum_history[n,ip] = sum(g[:,ip])
-			v[:,ip], dFds_unstable[:,ip] = decompose(v[:,ip], u, v0)
-			if(n>=n_converge+n_adjoint_converge+1)
-			
-				for binno_t=1:n_bins_t
-					for binno_r=1:n_bins_r
-						φ[binno_t,binno_r] = objective(u,s,t[binno_t],binsize_t,
-											r[binno_r],binsize_r)	
-						dΦds_unstable[binno_t,binno_r,ip] += 
-								#φ[binno_t,binno_r]*(sum(g[:,ip])
-								#		-gsum_mean[ip]/n)/n_samples
-								φ[binno_t,binno_r]*(sum(g[:,ip]))/n_samples
-
-						gradφ = nablaφ(u,s,t[binno_t],binsize_t,
-								r[binno_r],binsize_r)
-						dΦds_stable[binno_t,binno_r,ip] += dot(gradφ, v[:,ip])/n_samples
-						
-				
-			
-			
-		
-	
-    '''
