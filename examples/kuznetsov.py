@@ -682,7 +682,13 @@ def tangent_poincare_step(v0,u,s,ds):
     v1 = tangent_source_poincare(v1,u,s,ds)
     return v1
 	
+@jit(nopython=True)
+def adjoint_poincare_step(w1,u,s,dJ):
 
+    w0 = dot(gradFs_poincare(u,s).T,w1) 
+    w0 += dJ
+    return w0
+	
 
 @jit(nopython=True)
 def rot_freq(t): 

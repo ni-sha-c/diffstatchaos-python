@@ -29,6 +29,15 @@ def solve_poincare_unstable_direction(u, v_init, n_steps, s, ds):
         v[i] /= linalg.norm(v[i])
     return v
 
+@jit(nopython=True)
+def solve_poincare_unstable_adjoint_direction(u, w_init, n_steps, s, dJ):
+    w = empty((n_steps, w_init.size))
+    w[-1] = w_init
+    for i in range(n_steps-1,0,-1):
+        w[i-1] = adjoint_poincare_step(w[i],u[i-1],s,dJ)
+        w[i-1] /= norm(w[i-1])
+    return w
+
 
 @jit(nopython=True)
 def compute_poincare_source_tangent(u, n_steps, s0):
@@ -61,11 +70,11 @@ def compute_objective(u,s0,n_steps,n_theta=25,n_phi=25):
     dtheta = pi/(n_theta-1)
     dphi = 2*pi/(n_phi-1)
     J_theta_phi = zeros((n_steps,n_theta,n_phi))
-    for i in arange(1,n_steps):
+    for i in arange(n_steps):
         for t_ind, theta0 in enumerate(theta_bin_centers):
             for p_ind, phi0 in enumerate(phi_bin_centers):
-                J_theta_phi[i,t_ind,p_ind] += objective(u[i-1],
-                        s0,theta0,dtheta,phi0,dphi)/n_steps
+                J_theta_phi[i,t_ind,p_ind] += objective(u[i],
+                        s0,theta0,dtheta,phi0,dphi)
     return J_theta_phi 
 
 @jit(nopython=True)
@@ -94,40 +103,46 @@ def compute_gradient_objective(u,s0,n_steps,n_theta=25,n_phi=25):
 
 
 @jit(nopython=True)
-def compute_sensitivity(u,s,v0,w0,dJ,dFds,N,Ninf):
+def compute_sensitivity(u,s,v0,w0,J,dJ,dFds,dJds_0,N,Ninf):
     g = zeros(Ninf)
-    w_inv = zeros(d)
-    v = zeros(d)
+    w_inv = zeros(state_dim)
+    v = zeros(state_dim)
+    n_points_theta = J.shape[1]
+    n_points_phi = J.shape[2]
     gsum_mean = 0.0
     gsum_history = zeros(n_steps)
-    for n = 1:n_steps
-        b = unstable_sensitivity_source[n]
+    dJds_unstable = zeros((n_points_theta,n_points_phi))
+    dJds_stable = zeros((n_points_theta,n_points_phi))
+    dFds_unstable = zeros(state_dim)
+    n_samples = N - 2*Ninf
+    for n in range(N-1):
+        b = dJds_0[n]
         q = source_inverse_adjoint[n]
-        nablaFs = gradFs_poincare(u[n],s)
-	w_inv = -1.0*q + solve(nablaFs.T, winv)
-	w_inv = dot(w_inv, v0[n+1]) * v0[n+1]
-        g[n % Ninf] = w_inv*dFds_unstable - b   
+        nablaFs = gradFs_poincare(u[n],s)   
+        w_inv = -1.0*q + solve(nablaFs.T, w_inv)
+        w_inv = dot(w_inv, v0[n+1]) * v0[n+1]
+        g[n % Ninf] = dot(w_inv,dFds_unstable) - b   
         gsum_mean += sum(g)
-        v = nablaFs*v + dFds[n]
+        v = dot(nablaFs,v) + dFds[n]
         gsum_history[n] = sum(g)
-        v, dFds_unstable = decompose(v, v0[n+1], w0[n+1])
+        v, dFds_unstable = decompose_tangent(v, v0[n+1], w0[n+1])
         if(n>=2*Ninf+1):
-	    for binno_t=1:n_bins_t
-		for binno_p=1:n_bins_p
-		    dJds_unstable[binno_t,binno_p] += \
+            for binno_t in range(n_points_theta):
+                for binno_p in range(n_points_phi):
+                    dJds_unstable[binno_t,binno_p] += \
                             J[n,binno_t,binno_p]*(sum(g))/n_samples
-		    dJds_stable[binno_t,binno_p] += \
+                    dJds_stable[binno_t,binno_p] += \
                             dot(dJ[n,binno_t,binno_p], v)/n_samples
-						
+    return dJds_unstable, dJds_stable	
 
 if __name__ == "__main__":
 #def compute_sensitivity()
 
-    n_converge = 10
+    Ninf = 10
     n_adjoint_converge = 10
-    n_samples = 50000
+    n_samples = 500000
     n_runup = 1000
-    n_steps = n_samples + n_converge +\
+    n_steps = n_samples + Ninf +\
             n_adjoint_converge + 1 
     n_points_theta = 20
     n_points_phi = 20
@@ -179,7 +194,8 @@ if __name__ == "__main__":
     t6 = clock()
     unstable_sensitivity_source = (compute_poincare_source_sensitivity(u,n_steps,s0))
     t7 = clock()
-
+    w0 = solve_poincare_unstable_adjoint_direction(u, w0_init, n_steps, s0, dJ0)
+    t8 = clock()
     
     print('='*50)
     print("Pre-computation times for {:>10d} steps".format(n_samples))
@@ -191,10 +207,31 @@ if __name__ == "__main__":
     print('{:<35s}{:>16.10f}'.format("objective ", t4 - t3)) 
     print('{:<35s}{:>16.10f}'.format("gradient objective ", t5 - t4))
     print('{:<35s}{:>16.10f}'.format("sensitivity source ", t7 - t6))
+    print('{:<35s}{:>16.10f}'.format("adjoint ", t8 - t7))
     print('*'*50)
     print("End of pre-computation")
     print('*'*50)
 
-    	
-	
+    ds1 = copy(ds0)
+    ds1[0] = 1.0
+    print('Starting stable-(adjoint-unstable) split evolution...')
+    t13 = clock()
+    unstable_sensitivity_source = unstable_sensitivity_source[:,0]
+    dJds_stable, dJds_unstable = compute_sensitivity(u,s0,v0,w0,J_theta_phi,\
+            DJ_theta_phi,\
+            source_tangent,\
+            unstable_sensitivity_source, \
+            n_steps,Ninf)
+    t14 = clock()
+    print('{:<35s}{:>16.10f}'.format("time taken",t14-t13))
+    print('End of computation...')
 
+    dJds = dJds_stable + dJds_unstable
+    theta = linspace(0,pi,n_points_theta)
+    phi = linspace(-pi,pi,n_points_phi)
+    contourf(phi,theta,dJds,100)
+    xlabel(r"$\phi$")
+    ylabel(r"$\theta$")
+    colorbar()
+    savefig("../examples/plots/plykin_poincare_main1")       	
+	
