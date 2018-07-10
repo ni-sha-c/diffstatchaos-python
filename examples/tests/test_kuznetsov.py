@@ -443,3 +443,45 @@ def test_objective():
     figure()
     plot(phi_grid,dJ1dphi,"o-")
     #show()
+
+def test_gradient_objective():
+    n_test = 100
+    n_epsi = 10
+    n_theta = 20
+    n_phi = 20
+    dtheta = pi/(n_theta -1)
+    dphi = 2*pi/(n_phi -1)
+    theta0 = linspace(dtheta/2.0,pi-dtheta/2.0,n_theta)
+    phi0 = linspace(-pi+dphi/2.0,pi-dphi/2.0,n_phi)
+    u0 = rand(n_test,state_dim)
+    epsi = logspace(-n_epsi,-1,n_epsi)
+    dJdu_ana = zeros((n_test,n_theta,n_phi,state_dim))
+    dJdu_fd = zeros((n_epsi,n_test,n_theta,n_phi,state_dim))
+    
+    for p in range(n_test):
+        for i in range(n_theta):
+            for j in range(n_phi):
+                dJdu_ana[p,i,j] = Dobjective(u0[p],\
+                        s0,theta0[i],dtheta,phi0[j],dphi)
+                for k in range(n_epsi):
+                    for l in range(state_dim):
+                        v0 = zeros(state_dim)
+                        v0[l] = 1.0
+                        dJdu_fd[k,p,i,j,l] = (objective(u0[p]+epsi[k]*v0,\
+                            s0,theta0[i],dtheta,phi0[j],dphi)- \
+                            objective(u0[p]-epsi[k]*v0,s0,theta0[i],dtheta,\
+                            phi0[j],dphi))/(2.0*epsi[k])
+
+
+    err_dJdu = zeros(n_epsi)
+    for k in range(n_epsi):
+        err_dJdu[k] = norm(dJdu_fd[k]-dJdu_ana)
+    loglog(epsi,err_dJdu,"o")
+    xlabel(r"$\epsilon$")
+    ylabel("Error in the gradient of objective")
+    savefig("err_dJdu")
+    assert(max(err_dJdu) < 1.e-1)
+    assert(min(err_dJdu) < 1.e-6)
+
+
+

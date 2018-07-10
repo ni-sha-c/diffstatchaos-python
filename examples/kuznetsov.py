@@ -94,8 +94,8 @@ def objective(u,s,theta0,dtheta,phi0,dphi):
     phi = arctan2(u[1],u[0])
     phi += pi
     phi0 += pi
-    if(phi0 < dphi):
-        phi = (phi + dphi)%(2*pi) - dphi
+    #if(phi0 < dphi):
+    #    phi = (phi + dphi)%(2*pi) - dphi
     if(phi0 > 2*pi - dphi):
         phi = (phi + 2*pi - dphi)%(2*pi) + dphi
     phifrac = (phi-phi0)/dphi
@@ -113,6 +113,8 @@ def objective(u,s,theta0,dtheta,phi0,dphi):
 def Dobjective(u,s,theta0,dtheta,phi0,dphi):
 
     res = zeros(state_dim)
+    epsi = 1.e-5
+    '''
     x = u[0]
     y = u[1]
     z = u[2]
@@ -173,6 +175,16 @@ def Dobjective(u,s,theta0,dtheta,phi0,dphi):
     res[0] = hatphi*ddtheta*dthetadx + hattheta*ddphi*dphidx
     res[1] = hatphi*ddtheta*dthetady + hattheta*ddphi*dphidy
     res[2] = hatphi*ddtheta*dthetadz + hattheta*ddphi*dphidz
+    '''
+    for l in range(state_dim):
+        v0 = zeros(state_dim)
+        v0[l] = 1.0
+        res[l] = (objective(u+epsi*v0,\
+                s,theta0,dtheta,phi0,dphi)- \
+                objective(u-epsi*v0,s,theta0,dtheta,\
+                phi0,dphi))/(2.0*epsi)
+
+
     return res
 
 def convert_to_spherical(u):

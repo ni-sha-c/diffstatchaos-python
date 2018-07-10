@@ -65,10 +65,10 @@ def compute_poincare_source_sensitivity(u, n_steps, s0):
 
 @jit(nopython=True)
 def compute_objective(u,s0,n_steps,n_theta=25,n_phi=25):
-    theta_bin_centers = linspace(0,pi,n_theta)
-    phi_bin_centers = linspace(-pi,pi,n_phi)
     dtheta = pi/(n_theta-1)
     dphi = 2*pi/(n_phi-1)
+    theta_bin_centers = linspace(dtheta/2.0,pi-dtheta/2.0,n_theta)
+    phi_bin_centers = linspace(-pi+dphi/2.0,pi-dphi/2.0,n_phi)
     J_theta_phi = zeros((n_steps,n_theta,n_phi))
     for i in arange(n_steps):
         for t_ind, theta0 in enumerate(theta_bin_centers):
@@ -89,15 +89,16 @@ def preprocess_objective(J_theta_phi):
 
 @jit(nopython=True)
 def compute_gradient_objective(u,s0,n_steps,n_theta=25,n_phi=25):
-    theta_bin_centers = linspace(0,pi,n_theta)
-    phi_bin_centers = linspace(-pi,pi,n_phi)
     dtheta = pi/(n_theta-1)
     dphi = 2*pi/(n_phi-1)
+    theta_bin_centers = linspace(dtheta/2.0,pi-dtheta/2.0,n_theta)
+    phi_bin_centers = linspace(-pi+dphi/2.0,pi-dphi/2.0,n_phi)
+
     DJ_theta_phi = zeros((n_steps,n_theta,n_phi,state_dim))
-    for i in arange(1,n_steps):
+    for i in arange(n_steps):
         for t_ind, theta0 in enumerate(theta_bin_centers):
             for p_ind, phi0 in enumerate(phi_bin_centers):
-                DJ_theta_phi[i,t_ind,p_ind] += Dobjective(u[i-1],
+                DJ_theta_phi[i,t_ind,p_ind] += Dobjective(u[i],
                         s0,theta0,dtheta,phi0,dphi)
     return DJ_theta_phi 
 
@@ -132,8 +133,8 @@ def compute_sensitivity(u,s,v0,w0,J,dJ,dFds,dJds_0,N,Ninf):
                     dJds_unstable[binno_t,binno_p] += \
                             J[n,binno_t,binno_p]*(sum(g))/n_samples
                     dJds_stable[binno_t,binno_p] += \
-                            dot(dJ[n,binno_t,binno_p], v)/n_samples
-    return dJds_unstable, dJds_stable	
+                            dot(dJ[n+1,binno_t,binno_p], v)/n_samples
+    return dJds_stable, dJds_unstable	
 
 if __name__ == "__main__":
 #def compute_sensitivity()
@@ -141,7 +142,7 @@ if __name__ == "__main__":
     Ninf = 10
     n_adjoint_converge = 10
     n_samples = 500000
-    n_runup = 1000
+    n_runup = 100
     n_steps = n_samples + Ninf +\
             n_adjoint_converge + 1 
     n_points_theta = 20
@@ -229,9 +230,15 @@ if __name__ == "__main__":
     dJds = dJds_stable + dJds_unstable
     theta = linspace(0,pi,n_points_theta)
     phi = linspace(-pi,pi,n_points_phi)
-    contourf(phi,theta,dJds,100)
+    figure()
+    contourf(phi,theta,dJds_stable,100)
     xlabel(r"$\phi$")
     ylabel(r"$\theta$")
     colorbar()
-    savefig("../examples/plots/plykin_poincare_main1")       	
-	
+    #savefig("../examples/plots/plykin_poincare_main_stable")
+    figure()
+    contourf(phi,theta,dJds_unstable,100)
+    xlabel(r"$\phi$")
+    ylabel(r"$\theta$")
+    colorbar()
+    #savefig("../examples/plots/plykin_poincare_main_unstable")
