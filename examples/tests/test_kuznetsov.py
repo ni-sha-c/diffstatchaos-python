@@ -7,7 +7,7 @@ from flow_sens import *
 from matplotlib.pyplot import *
 from pylab import *
 from numpy import *
-
+from mpl_toolkits.mplot3d import Axes3D
 n_runup = 100*int(T/dt)
 def visualize_primal():
     u_init = rand(state_dim)
@@ -81,7 +81,7 @@ def test_step_primal():
 def extrapolate(a0, a1, multiplier):
     return a0 + (a1 - a0) * multiplier
 
-def visualize_tangent(u, v):
+def visualize_tangent_stereographic(u, v):
     EPS = 1E-8
     u_plus, u_minus = u + v * EPS, u - v * EPS
     stereo_real, stereo_imag = stereographic_projection(u.T)
@@ -94,10 +94,85 @@ def visualize_tangent(u, v):
     plot([stereo_real_plus, stereo_real_minus],
          [stereo_imag_plus, stereo_imag_minus], '-k', ms=1)
 
+def visualize_tangent_2D(u, v):
+    EPS = 1E-8
+    u = u.T
+    v = v.T
+    u_plus, u_minus = u + v * EPS, u - v * EPS
+    phi = arctan2(u[1],u[0])
+    theta = arccos(u[2],norm(u,axis=0))
+    phi_plus = arctan2(u_plus[1],u_plus[0])
+    phi_minus = arctan2(u_minus[1],u_minus[0])
+    theta_plus = arccos(u_plus[2],norm(u_plus,axis=0))
+    theta_minus = arccos(u_minus[2],norm(u_minus,axis=0))
+
+    phi_plus = extrapolate(phi, phi_plus, 1E6)
+    phi_minus = extrapolate(phi, phi_minus, 1E6)
+    theta_plus = extrapolate(theta, theta_plus, 1E6)
+    theta_minus = extrapolate(theta, theta_minus, 1E6)
+    plot([phi_plus, phi_minus],
+         [theta_plus, theta_minus], '-k', ms=1)
 
 #visualize_tangent(u[::int(T/dt)], v0[::int(T/dt)])
+def visualize_tangent_2D(u, v):
+    EPS = 1E-8
+    u = u.T
+    v = v.T
+    u_plus, u_minus = u + v * EPS, u - v * EPS
+    phi = arctan2(u[1],u[0])
+    theta = arccos(u[2],norm(u,axis=0))
+    phi_plus = arctan2(u_plus[1],u_plus[0])
+    phi_minus = arctan2(u_minus[1],u_minus[0])
+    theta_plus = arccos(u_plus[2],norm(u_plus,axis=0))
+    theta_minus = arccos(u_minus[2],norm(u_minus,axis=0))
+
+    phi_plus = extrapolate(phi, phi_plus, 1E6)
+    phi_minus = extrapolate(phi, phi_minus, 1E6)
+    theta_plus = extrapolate(theta, theta_plus, 1E6)
+    theta_minus = extrapolate(theta, theta_minus, 1E6)
+    plot([phi_plus, phi_minus],
+         [theta_plus, theta_minus], '-k', ms=1)
 
 
+def visualize_tangent_3D(u, v):
+    EPS = 1E-8
+    u0 = copy(u).T
+    u = u[::500]
+    v = v[::500]
+
+    u = u.T
+    v = v.T
+    u_plus, u_minus = u + v * EPS, u - v * EPS
+    
+    u_plus = extrapolate(u, u_plus, 1E6)
+    u_minus = extrapolate(u, u_minus, 1E6)
+    r = 1
+    phi, theta = mgrid[0.0:pi:100j, 0.0:2.0*pi:100j]
+    x = r*sin(phi)*cos(theta)
+    y = r*sin(phi)*sin(theta)
+    z = r*cos(phi)
+    fig = figure()
+    ax = fig.add_subplot(111, projection='3d')
+    ax.plot_surface(
+    x, y, z,  rstride=1, cstride=1, color='gray', alpha=0.1, linewidth=0)
+    ax.quiver(u[0],u[1],u[2],u_plus[0], \
+            u_plus[1],u_plus[2],color='k',length=0.25)
+    ax.scatter(u0[0],u0[1],u0[2],color='gray')
+    pointA = array([-1/sqrt(2.0), -1/sqrt(2.0), 0])
+    pointB = array([-1/sqrt(2.0), 1/sqrt(2.0), 0])
+    pointC = array([1/sqrt(2.0), -1/sqrt(2.0), 0])
+    pointD = array([1/sqrt(2.0), 1/sqrt(2.0), 0])
+    ax.scatter([pointA[0],pointB[0],pointC[0],pointD[0]],\
+            [pointA[1],pointB[1],pointC[1],pointD[1]],\
+            [pointA[2],pointB[2],pointC[2],pointD[2]],\
+                color='red',s=30.0)
+    ax.set_xlabel(r"$x$")
+    ax.set_ylabel(r"$y$")
+    ax.set_zlabel(r"$z$")
+
+
+    #plot([u_plus[0], u_minus[0]], \
+     #    [u_plus[1], u_minus[1]],[u_plus[2],u_minus[2]],'-k', ms=1)
 
 
 def test_tangent():

@@ -6,6 +6,8 @@ import pdb
 
 sys.path.insert(0, '../examples/')
 from kuznetsov import *
+sys.path.insert(0, '../examples/tests')
+from test_kuznetsov import *
 
 from pylab import *
 from numpy import *
@@ -103,10 +105,10 @@ def compute_gradient_objective(u,s0,n_steps,n_theta=25,n_phi=25):
     return DJ_theta_phi 
 
 
-#@jit(nopython=True)
+@jit(nopython=True)
 def compute_sensitivity(u,s,v0,w0,J,dJ,dFds,dJds_0,N,Ninf):
     g = zeros(Ninf)
-    w_inv = zeros(state_dim)
+    w_inv = zeros((n_steps,state_dim))
     v = zeros(state_dim)
     n_points_theta = J.shape[1]
     n_points_phi = J.shape[2]
@@ -116,13 +118,13 @@ def compute_sensitivity(u,s,v0,w0,J,dJ,dFds,dJds_0,N,Ninf):
     dJds_stable = zeros((n_points_theta,n_points_phi))
     dFds_unstable = zeros(state_dim)
     n_samples = N - 2*Ninf
-    for n in range(21):
+    for n in range(n_steps-1):
         b = dJds_0[n]
         q = source_inverse_adjoint[n]
         nablaFs = gradFs_poincare(u[n],s)   
-        w_inv = -1.0*q + solve(nablaFs.T, w_inv)
-        w_inv = dot(w_inv, v0[n+1]) * v0[n+1]
-        g[n % Ninf] = dot(w_inv,dFds_unstable) - b   
+        w_inv[n+1] = -1.0*q + solve(nablaFs.T, w_inv[n])
+        w_inv[n+1] = dot(w_inv[n+1], v0[n+1]) * v0[n+1]
+        g[n % Ninf] = dot(w_inv[n+1],dFds_unstable) - b   
         gsum_mean += sum(g)
         v = dot(nablaFs,v) + dFds[n]
         gsum_history[n] = sum(g)
@@ -134,15 +136,14 @@ def compute_sensitivity(u,s,v0,w0,J,dJ,dFds,dJds_0,N,Ninf):
                             J[n+1,binno_t,binno_p]*(sum(g))/n_samples
                     dJds_stable[binno_t,binno_p] += \
                             dot(dJ[n+1,binno_t,binno_p], v)/n_samples
-                    stop
-    return dJds_stable, dJds_unstable	
+    return dJds_stable, dJds_unstable, w_inv	
 
 if __name__ == "__main__":
 #def compute_sensitivity()
 
     Ninf = 10
     n_adjoint_converge = 10
-    n_samples = 500
+    n_samples = 100000
     n_runup = 100
     n_steps = n_samples + Ninf +\
             n_adjoint_converge + 1 
@@ -219,7 +220,7 @@ if __name__ == "__main__":
     print('Starting stable-(adjoint-unstable) split evolution...')
     t13 = clock()
     unstable_sensitivity_source = unstable_sensitivity_source[:,0]
-    dJds_stable, dJds_unstable = compute_sensitivity(u,s0,v0,w0,J_theta_phi,\
+    dJds_stable, dJds_unstable, w0_inv = compute_sensitivity(u,s0,v0,w0,J_theta_phi,\
             DJ_theta_phi,\
             source_tangent,\
             unstable_sensitivity_source, \
@@ -231,15 +232,17 @@ if __name__ == "__main__":
     dJds = dJds_stable + dJds_unstable
     theta = linspace(0,pi,n_points_theta)
     phi = linspace(-pi,pi,n_points_phi)
+    #figure()
+    #contourf(phi,theta,dJds_stable,100)
+    #xlabel(r"$\phi$")
+    #ylabel(r"$\theta$")
+    #colorbar()
     figure()
-    contourf(phi,theta,dJds_stable,100)
-    xlabel(r"$\phi$")
-    ylabel(r"$\theta$")
-    colorbar()
+    visualize_tangent_3D(u,w0_inv)
     #savefig("../examples/plots/plykin_poincare_main_stable")
-    figure()
-    contourf(phi,theta,dJds_unstable,100)
-    xlabel(r"$\phi$")
-    ylabel(r"$\theta$")
-    colorbar()
+    #figure()
+    #contourf(phi,theta,dJds_unstable,100)
+    #xlabel(r"$\phi$")
+    #ylabel(r"$\theta$")
+    #colorbar()
     #savefig("../examples/plots/plykin_poincare_main_unstable")
