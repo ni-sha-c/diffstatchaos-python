@@ -87,6 +87,11 @@ def compute_gradient_objective(u,s0,n_steps,n_theta=25,n_phi=25):
     return DJ_theta_phi 
 
 
+@jit(nopython=True)
+def compute_fourier_transform(u,J,xi):
+
+
+
 
 if __name__ == "__main__":
 #def compute_sensitivity()
@@ -137,18 +142,12 @@ if __name__ == "__main__":
     t1 = clock()
     v0 = solve_poincare_unstable_direction(u, v0_init, n_steps, s0, ds0)
     t2 = clock()
-    source_tangent = compute_poincare_source_tangent(u,n_steps,s0)[:,0,:] 
-    t3 = clock()
     J_theta_phi = compute_objective(u,s0,n_steps,n_points_theta,n_points_phi)
-    t4 = clock()
+    t3 = clock()
     DJ_theta_phi = compute_gradient_objective(u,s0,n_steps,n_points_theta,n_points_phi)
-    t5 = clock()
-    source_inverse_adjoint = compute_poincare_source_inverse_adjoint(u,n_steps,s0)
-    t6 = clock()
-    unstable_sensitivity_source = (compute_poincare_source_sensitivity(u,n_steps,s0))
-    t7 = clock()
+    t4 = clock()
     w0 = solve_poincare_unstable_adjoint_direction(u, w0_init, n_steps, s0, dJ0)
-    t8 = clock()
+    t5 = clock()
     
     print('='*50)
     print("Pre-computation times for {:>10d} steps".format(n_samples))

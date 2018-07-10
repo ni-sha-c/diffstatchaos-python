@@ -103,7 +103,7 @@ def compute_gradient_objective(u,s0,n_steps,n_theta=25,n_phi=25):
     return DJ_theta_phi 
 
 
-@jit(nopython=True)
+#@jit(nopython=True)
 def compute_sensitivity(u,s,v0,w0,J,dJ,dFds,dJds_0,N,Ninf):
     g = zeros(Ninf)
     w_inv = zeros(state_dim)
@@ -116,7 +116,7 @@ def compute_sensitivity(u,s,v0,w0,J,dJ,dFds,dJds_0,N,Ninf):
     dJds_stable = zeros((n_points_theta,n_points_phi))
     dFds_unstable = zeros(state_dim)
     n_samples = N - 2*Ninf
-    for n in range(N-1):
+    for n in range(21):
         b = dJds_0[n]
         q = source_inverse_adjoint[n]
         nablaFs = gradFs_poincare(u[n],s)   
@@ -134,6 +134,7 @@ def compute_sensitivity(u,s,v0,w0,J,dJ,dFds,dJds_0,N,Ninf):
                             J[n+1,binno_t,binno_p]*(sum(g))/n_samples
                     dJds_stable[binno_t,binno_p] += \
                             dot(dJ[n+1,binno_t,binno_p], v)/n_samples
+                    stop
     return dJds_stable, dJds_unstable	
 
 if __name__ == "__main__":
@@ -141,7 +142,7 @@ if __name__ == "__main__":
 
     Ninf = 10
     n_adjoint_converge = 10
-    n_samples = 500000
+    n_samples = 500
     n_runup = 100
     n_steps = n_samples + Ninf +\
             n_adjoint_converge + 1 
