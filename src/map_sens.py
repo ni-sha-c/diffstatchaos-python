@@ -199,9 +199,9 @@ if __name__ == "__main__":
     t2 = clock()
     source_tangent = compute_poincare_source_tangent(u,n_steps,s0)[:,0,:] 
     t3 = clock()
-    J_theta_phi = compute_objective(u,s0,n_steps,n_points_theta,n_points_phi)
+#    J_theta_phi = compute_objective(u,s0,n_steps,n_points_theta,n_points_phi)
     t4 = clock()
-    DJ_theta_phi = compute_gradient_objective(u,s0,n_steps,n_points_theta,n_points_phi)
+ #   DJ_theta_phi = compute_gradient_objective(u,s0,n_steps,n_points_theta,n_points_phi)
     t5 = clock()
     source_inverse_adjoint = compute_poincare_source_inverse_adjoint(u,n_steps,s0)
     t6 = clock()
@@ -226,6 +226,7 @@ if __name__ == "__main__":
     print("End of pre-computation")
     print('*'*50)
 
+    stop
     ds1 = copy(ds0)
     ds1[0] = 1.0
     print('Starting stable-(adjoint-unstable) split evolution...')

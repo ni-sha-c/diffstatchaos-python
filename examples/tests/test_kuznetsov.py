@@ -9,6 +9,7 @@ from pylab import *
 from numpy import *
 from mpl_toolkits.mplot3d import Axes3D
 n_runup = 100*int(T/dt)
+style.use('presentation')
 def visualize_primal():
     u_init = rand(state_dim)
     u_init[3] = 0.0
@@ -173,20 +174,20 @@ def visualize_tangent_3D(u, v):
 
 def visualize_field_density_3D(u, v):
     EPS = 1E-8
-    u0 = copy(u)
-    rhou0, = histogramdd(u0,bins = (100,100,100))
-    
-
-
+    u0 = u[:,:-1]
+    u0 = asarray(u0)
+    rebin = imbin = 50
+    binvol = 48.0/(rebin*imbin)
+    re_proj2du0, im_proj2du0 = stereographic_projection(u0.T)
+    u0_2d = array([re_proj2du0,im_proj2du0]).T
+    rhou0,binedges = histogramdd(u0_2d,bins = (rebin,imbin),normed=True)
+    rhou0 *= binvol
+    re_boundary = array([-4.,4.])
+    im_boundary = array([-3.,3.])
     u = u[::500]
     v = v[::500]
-
     u = u.T
     v = v.T
-    u_plus, u_minus = u + v * EPS, u - v * EPS
-    
-    u_plus = extrapolate(u, u_plus, 1E6)
-    u_minus = extrapolate(u, u_minus, 1E6)
     r = 1
     phi, theta = mgrid[0.0:pi:100j, 0.0:2.0*pi:100j]
     x = r*sin(phi)*cos(theta)
@@ -196,9 +197,21 @@ def visualize_field_density_3D(u, v):
     ax = fig.add_subplot(111, projection='3d')
     ax.plot_surface(
     x, y, z,  rstride=1, cstride=1, color='gray', alpha=0.1, linewidth=0)
-    ax.quiver(u[0],u[1],u[2],u_plus[0], \
-            u_plus[1],u_plus[2],color='k',length=0.25)
-    ax.scatter(u0[0],u0[1],u0[2],color='gray')
+    ax.quiver(u[0],u[1],u[2],v[0], \
+            v[1],v[2],color='r',length=0.25)
+    u0 = u0.T
+    density_colors = zeros(u0.shape[1])
+    for i in range(u0.shape[1]):
+        rebin_ind = int((re_proj2du0[i] - re_boundary[0])\
+                /(re_boundary[1]\
+                -re_boundary[0])*(rebin-1)) 
+        imbin_ind = int((im_proj2du0[i] - im_boundary[0])\
+                /(im_boundary[1]\
+            -im_boundary[0])*(imbin-1)) 
+        density_colors[i]=rhou0[rebin_ind,imbin_ind]
+    density_colors /= max(density_colors)
+    ax.scatter(u0[0],u0[1],u0[2],c=cm.viridis(density_colors),s=30)
+
     pointA = array([-1/sqrt(2.0), -1/sqrt(2.0), 0])
     pointB = array([-1/sqrt(2.0), 1/sqrt(2.0), 0])
     pointC = array([1/sqrt(2.0), -1/sqrt(2.0), 0])
@@ -210,7 +223,8 @@ def visualize_field_density_3D(u, v):
     ax.set_xlabel(r"$x$")
     ax.set_ylabel(r"$y$")
     ax.set_zlabel(r"$z$")
-    savefig("plykin_inverse_adjoint_3d",dpi=1000)
+    savefig("plykin_vis_temp",dpi=1000)
+
 
 def test_tangent():
 
