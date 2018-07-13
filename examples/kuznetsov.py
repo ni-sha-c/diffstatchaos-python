@@ -2,7 +2,7 @@ from pylab import *
 from numpy import *
 from numba import jit
 
-dt = 1.e-2
+dt = 2.e-3
 
 s0 = array([1.0,1.0])
 T = 6.0
@@ -714,13 +714,14 @@ def rot_freq(t):
     c3 = 6.0
     c4 = 0.0
 
-    '''
+    
     if t > c0 and t < c1:
         return -1
     elif t > c2 and t < c3:
         return 1
     else:
         return 0
+    
     '''
     slope = 20.0
     est = exp(slope*t)
@@ -737,7 +738,7 @@ def rot_freq(t):
     fn4 = (a2*esc4 + a1*est)/(esc4 + est)
 
     return fn0 + fn1 + fn2 + fn3 + fn4
-
+    '''
 
 
 @jit(nopython=True)
@@ -750,15 +751,15 @@ def diff_rot_freq(t):
     c2 = 4.0
     c3 = 5.0 
 
-    '''
+    
     if t > c0 and t < c1:
         return -1
     elif t > c2 and t < c3:
         return 1
     else:
         return 0
+    
     '''
-
     slope = 20.0
     est = exp(slope*t)
     esc0 = exp(slope*c0)
@@ -772,7 +773,7 @@ def diff_rot_freq(t):
     fn3 = (a2*esc3 + a1*est)/(esc3 + est)
 
     return fn0 + fn1 + fn2 + fn3
-
+    '''
 
 @jit(nopython=True)
 def ddiff_rot_freq_dt(t):

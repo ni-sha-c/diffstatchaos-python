@@ -82,7 +82,7 @@ def test_step_primal():
 def extrapolate(a0, a1, multiplier):
     return a0 + (a1 - a0) * multiplier
 
-def visualize_tangent_stereographic(u, v):
+def visualize_tangent_stereographic(u, v, c1="black"):
     EPS = 1E-8
     u_plus, u_minus = u + v * EPS, u - v * EPS
     stereo_real, stereo_imag = stereographic_projection(u.T)
@@ -93,7 +93,7 @@ def visualize_tangent_stereographic(u, v):
     stereo_imag_plus = extrapolate(stereo_imag, stereo_imag_plus, 1E6)
     stereo_imag_minus = extrapolate(stereo_imag, stereo_imag_minus, 1E6)
     plot([stereo_real_plus, stereo_real_minus],
-         [stereo_imag_plus, stereo_imag_minus], '-k', ms=1)
+         [stereo_imag_plus, stereo_imag_minus], color=c1, ms=1)
 
 def visualize_tangent_2D(u, v):
     EPS = 1E-8

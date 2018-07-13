@@ -8,6 +8,8 @@ import pdb
 sys.path.insert(0, '../examples/')
 from kuznetsov import *
 
+sys.path.insert(0, '../examples/tests')
+from test_kuznetsov import *
 from pylab import *
 from numpy import *
 from time import clock
@@ -220,9 +222,9 @@ if __name__ == '__main__':
     t3 = clock()
     w0 = solve_unstable_adjoint_direction(u, w0_init, n_steps, s0, dJ0)
     t4 = clock()
-    J_theta_phi = compute_objective(u,s0,n_steps,n_points_theta,n_points_phi)
+    #J_theta_phi = compute_objective(u,s0,n_steps,n_points_theta,n_points_phi)
     t5 = clock()
-    DJ_theta_phi = compute_gradient_objective(u,s0,n_steps,n_points_theta,n_points_phi)
+    #DJ_theta_phi = compute_gradient_objective(u,s0,n_steps,n_points_theta,n_points_phi)
     t6 = clock()
     source_inverse_adjoint = compute_source_inverse_adjoint(u,n_steps,s0)
     t7 = clock()
@@ -245,6 +247,7 @@ if __name__ == '__main__':
     print("End of pre-computation")
     print('*'*50)
 
+    stop
     
     print('='*50)
     print("Computation times for sensitivity source terms")
