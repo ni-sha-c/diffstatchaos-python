@@ -17,9 +17,8 @@ if __name__ == "__main__":
             n_steps,
             solver_ode.s0)
     u_ode_poincare = u_ode[::n_map]
-    #u_map = u_ode[::600]
-    #ode_sens = ode_sensitivity(u_ode)
-    #map_sens = map_sensitivity(u_map)
+    ode_sens = flow_sens.sensitivity_precomputation(u_ode)
+    map_sens = map_sens.sensitivity_precomputation(u_map)
     # compare member variables of ode_sens against those of map_sens
 
 

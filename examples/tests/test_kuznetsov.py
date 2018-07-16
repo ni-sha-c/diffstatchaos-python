@@ -3,12 +3,12 @@ sys.path.insert(0, '../')
 import kuznetsov as kode
 import kuznetsov_poincare as kmap
 sys.path.insert(0, '../../src')
-from flow_sens import *
+import flow_sens as flow_sens
 from matplotlib.pyplot import *
 from pylab import *
 from numpy import *
 from mpl_toolkits.mplot3d import Axes3D
-
+from numba import jit
 style.use('presentation')
 def visualize_primal():
     u_init = rand(state_dim)
@@ -28,6 +28,8 @@ def visualize_poincare_primal():
     n_map = solver_ode.n_poincare
     n_steps = 500*n_map
     s0 = solver_ode.s0
+    sens_object = flow_sens.Sensitivity()
+    solve_primal = sens_object.solve_primal
     u_ode = solve_primal(solver_ode,\
             u_init,n_steps,s0)
     u_ode = u_ode[::n_map]

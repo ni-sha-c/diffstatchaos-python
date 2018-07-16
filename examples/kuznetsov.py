@@ -475,42 +475,40 @@ class Solver:
     
     #@jit(nopython=True)
     def tangent_step(self,v0,u,s,ds):
+        x = u[0]
+        y = u[1]
+        z = u[2]
+        t = u[3]
+        dx = v0[0]
+        dy = v0[1]
+        dz = v0[2]
+        dtime = v0[3]
+        v = copy(v0)
+        T = self.T
+        dt = self.dt
+        r2 = x**2 + y**2 + z**2	
+        r = sqrt(r2)
+        t = t%T
+        sigma = self.diff_rot_freq(t)
+        a = self.rot_freq(t)
+        dsigma_dt = self.ddiff_rot_freq_dt(t)
+        da_dt = self.drot_freq_dt(t)
+        coeff1 = sigma*pi*0.5*(z*sqrt(2) + 1)
+        coeff2 = s[0]*(1. - sigma*sigma - a*a)
+        coeff3 = s[1]*a*a*(1.0 - r)		
     
-    	x = u[0]
-    	y = u[1]
-    	z = u[2]
-    	t = u[3]
-    	dx = v0[0]
-    	dy = v0[1]
-    	dz = v0[2]
-    	dtime = v0[3]
-    	v = copy(v0)
+        dcoeff1_dt = pi*0.5*(z*sqrt(2) + 1)*dsigma_dt
+        dcoeff2_dt = s[0]*(-2.0)*(sigma*dsigma_dt + a*da_dt)
+        dcoeff3_dt = s[1]*(1.0 - r)*2.0*a*da_dt
     
-    	
-    	r2 = x**2 + y**2 + z**2	
-    	r = sqrt(r2)
-    	t = t%T
-    	sigma = diff_rot_freq(t)
-    	a = rot_freq(t)
-    	dsigma_dt = ddiff_rot_freq_dt(t)
-    	da_dt = drot_freq_dt(t)
-    	coeff1 = sigma*pi*0.5*(z*sqrt(2) + 1)
-    	coeff2 = s[0]*(1. - sigma*sigma - a*a)
-    	coeff3 = s[1]*a*a*(1.0 - r)		
+        dcoeff1_dz = sigma*pi*0.5*sqrt(2)
+        dcoeff3_dx = s[1]*a*a*(-x)/r
+        dcoeff3_dy = s[1]*a*a*(-y)/r
+        dcoeff3_dz = s[1]*a*a*(-z)/r
     
-    	dcoeff1_dt = pi*0.5*(z*sqrt(2) + 1)*dsigma_dt
-    	dcoeff2_dt = s[0]*(-2.0)*(sigma*dsigma_dt + a*da_dt)
-    	dcoeff3_dt = s[1]*(1.0 - r)*2.0*a*da_dt
-    
-    	dcoeff1_dz = sigma*pi*0.5*sqrt(2)
-    	dcoeff3_dx = s[1]*a*a*(-x)/r
-    	dcoeff3_dy = s[1]*a*a*(-y)/r
-    	dcoeff3_dz = s[1]*a*a*(-z)/r
-    
-    	dcoeff2_ds1 = coeff2/s[0]
-    	dcoeff3_ds2 = coeff3/s[1]
-    
-    	v[0] += dt*(-1.0*dcoeff1_dz*y*dz - 1.0*
+        dcoeff2_ds1 = coeff2/s[0]
+        dcoeff3_ds2 = coeff3/s[1]
+        v[0] += dt*(-1.0*dcoeff1_dz*y*dz - 1.0*
     				coeff1*dy - dcoeff2_ds1*ds[0]*x*y*y - 
     				coeff2*y*y*dx +
                                     - coeff2*x*2.0*y*dy + 
@@ -523,7 +521,7 @@ class Solver:
     				0.5*da_dt*pi*z*dtime + 
     				dcoeff3_dt*x*dtime)
     
-    	v[1] += dt*(coeff1*dx + 
+        v[1] += dt*(coeff1*dx + 
     				dcoeff1_dz*x*dz + 
     				dcoeff2_ds1*y*x*x*ds[0] + 
     				coeff2*dy*x*x + 
@@ -537,7 +535,7 @@ class Solver:
     				dcoeff2_dt*y*x*x*dtime + 
     				dcoeff3_dt*y*dtime) 
     
-    	v[2] += dt*(-0.5*a*pi*dx + 
+        v[2] += dt*(-0.5*a*pi*dx + 
     				dcoeff3_ds2*z*ds[1] + 
     				dcoeff3_dx*z*dx + 
     				dcoeff3_dy*z*dy + 
@@ -547,7 +545,7 @@ class Solver:
     				dcoeff3_dt*z*dtime)
     	 
     
-    	return v
+        return v
     
     
     	
