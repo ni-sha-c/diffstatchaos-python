@@ -89,9 +89,29 @@ def test_step_primal():
 def extrapolate(a0, a1, multiplier):
     return a0 + (a1 - a0) * multiplier
 
+def visualize_unstable_direction():
+    solver_ode = kode.Solver()
+    u_init = solver_ode.u_init
+    n_map = solver_ode.n_poincare
+    n_steps = 1000*n_map
+    s0 = solver_ode.s0
+    sens_object = flow_sens.Sensitivity()
+    solve_primal = sens_object.solve_primal
+    u_ode = solve_primal(solver_ode,\
+            u_init,n_steps,s0)
+    solve_unstable_direction = sens_object.\
+            solve_unstable_direction
+    v = solve_unstable_direction(solver_ode,\
+        u_ode, rand(solver_ode.state_dim),n_steps,\
+        s0)
+    visualize_tangent_2D(u_ode[::n_map],\
+            v[::n_map])
+
+
 def visualize_tangent_stereographic(u, v, c1="black"):
     EPS = 1E-8
     u_plus, u_minus = u + v * EPS, u - v * EPS
+    stereographic_projection = kode.Solver().stereographic_projection
     stereo_real, stereo_imag = stereographic_projection(u.T)
     stereo_real_plus, stereo_imag_plus = stereographic_projection(u_plus.T)
     stereo_real_minus, stereo_imag_minus = stereographic_projection(u_minus.T)
@@ -100,7 +120,7 @@ def visualize_tangent_stereographic(u, v, c1="black"):
     stereo_imag_plus = extrapolate(stereo_imag, stereo_imag_plus, 1E6)
     stereo_imag_minus = extrapolate(stereo_imag, stereo_imag_minus, 1E6)
     plot([stereo_real_plus, stereo_real_minus],
-         [stereo_imag_plus, stereo_imag_minus], color=c1, ms=1)
+         [stereo_imag_plus, stereo_imag_minus], color=c1, ms=10)
 
 def visualize_tangent_2D(u, v):
     EPS = 1E-8
@@ -121,25 +141,6 @@ def visualize_tangent_2D(u, v):
     plot([phi_plus, phi_minus],
          [theta_plus, theta_minus], '-k', ms=1)
 
-#visualize_tangent(u[::int(T/dt)], v0[::int(T/dt)])
-def visualize_tangent_2D(u, v):
-    EPS = 1E-8
-    u = u.T
-    v = v.T
-    u_plus, u_minus = u + v * EPS, u - v * EPS
-    phi = arctan2(u[1],u[0])
-    theta = arccos(u[2],norm(u,axis=0))
-    phi_plus = arctan2(u_plus[1],u_plus[0])
-    phi_minus = arctan2(u_minus[1],u_minus[0])
-    theta_plus = arccos(u_plus[2],norm(u_plus,axis=0))
-    theta_minus = arccos(u_minus[2],norm(u_minus,axis=0))
-
-    phi_plus = extrapolate(phi, phi_plus, 1E6)
-    phi_minus = extrapolate(phi, phi_minus, 1E6)
-    theta_plus = extrapolate(theta, theta_plus, 1E6)
-    theta_minus = extrapolate(theta, theta_minus, 1E6)
-    plot([phi_plus, phi_minus],
-         [theta_plus, theta_minus], '-k', ms=1)
 
 
 def visualize_tangent_3D(u, v):

@@ -46,11 +46,12 @@ class Sensitivity:
 
 
     #@jit(nopython=True)
-    def solve_unstable_direction(self,solver_ode, u, v_init, n_steps, s, ds):
+    def solve_unstable_direction(self,solver_ode, u, v_init, n_steps, s):
         v = empty((n_steps, v_init.size))
         v[0] = v_init
         for i in range(1,n_steps):
-            v[i] = solver_ode.tangent_step(v[i-1],u[i-1],s,ds)
+            v[i] = solver_ode.tangent_step(v[i-1],u[i-1],s,\
+                    zeros(v_init.size))
             v[i] /= linalg.norm(v[i])
         return v
     
