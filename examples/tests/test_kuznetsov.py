@@ -1,14 +1,14 @@
-testName="kuznetsov"
 import sys
 sys.path.insert(0, '../')
-from kuznetsov import *
+import kuznetsov as kode
+import kuznetsov_poincare as kmap
 sys.path.insert(0, '../../src')
 from flow_sens import *
 from matplotlib.pyplot import *
 from pylab import *
 from numpy import *
 from mpl_toolkits.mplot3d import Axes3D
-n_runup = 100*int(T/dt)
+
 style.use('presentation')
 def visualize_primal():
     u_init = rand(state_dim)
@@ -23,13 +23,18 @@ def visualize_primal():
     savefig('st_proj_attractor.png')
 
 def visualize_poincare_primal():
-    u_init = rand(state_dim)
-    u_init = poincare_step(u_init,s0,n_runup)
-    n_steps = 10000
-    u = solve_poincare_primal(u_init,n_steps,s0)
-    stereo_real, stereo_imag = stereographic_projection(u.T)
+    solver_ode = kode.Solver()
+    u_init = solver_ode.u_init
+    n_map = solver_ode.n_poincare
+    n_steps = 500*n_map
+    s0 = solver_ode.s0
+    u_ode = solve_primal(solver_ode,\
+            u_init,n_steps,s0)
+    u_ode = u_ode[::n_map]
+    stereo_real, stereo_imag = \
+        solver_ode.stereographic_projection(u_ode.T)
     figure()
-    plot(stereo_real, stereo_imag, '.', ms=4)
+    plot(stereo_real, stereo_imag, '.')
     savefig('st_proj_poincare_attractor.png')
 
 

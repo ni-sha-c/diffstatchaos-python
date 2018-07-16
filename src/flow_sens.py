@@ -1,26 +1,25 @@
 #!/usr/bin/env python
+'''
+Statistical sensitivity analysis algorithm for odes.
+'''
 
 from __future__ import division
 from __future__ import print_function
 import sys
 import pdb
 
-sys.path.insert(0, '../examples/')
-from kuznetsov import *
 
-sys.path.insert(0, '../examples/tests')
-from test_kuznetsov import *
 from pylab import *
 from numpy import *
 from time import clock
 from util import *
 
 @jit(nopython=True)
-def solve_primal(u_init, n_steps, s):
+def solve_primal(solver_ode,u_init, n_steps, s):
     u = empty((n_steps, u_init.size))
     u[0] = u_init
     for i in range(1,n_steps):
-        u[i] = primal_step(u[i-1],s)
+        u[i] = solver_ode.primal_step(u[i-1],s,1)
     return u
 
 

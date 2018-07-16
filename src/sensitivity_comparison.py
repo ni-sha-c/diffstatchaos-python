@@ -1,20 +1,25 @@
+import sys
 sys.path.insert(0, '../examples/')
-from kuznetsov_poincare import *
+import kuznetsov_poincare as kmap
+import kuznetsov as kode
 from objective import *
-from map_sens import *
-
+import map_sens as map_sens
+import flow_sens as flow_sens
 if __name__ == "__main__":
 #def compute_sensitivity()
 
 
-    primal = Solver()
-    dJds_stable, dJds_unstable = \
-            compute_sensitivity(primal)
-
-    u_ode = ode_trajectory(plykin_ode, u0)
-    u_map = u_ode[::600]
-    ode_sens = ode_sensitivity(u_ode)
-    map_sens = map_sensitivity(u_map)
+    solver_ode = kode.Solver()
+    solver_map = kmap.Solver()
+    n_map = solver_ode.n_poincare
+    n_steps = n_map*100
+    u_ode = flow_sens.solve_primal(solver_ode,solver_ode.u_init,\
+            n_steps,
+            solver_ode.s0)
+    u_ode_poincare = u_ode[::n_map]
+    #u_map = u_ode[::600]
+    #ode_sens = ode_sensitivity(u_ode)
+    #map_sens = map_sensitivity(u_map)
     # compare member variables of ode_sens against those of map_sens
 
 

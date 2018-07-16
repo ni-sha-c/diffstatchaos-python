@@ -1,7 +1,16 @@
 from pylab import *
 from numpy import *
-from numba import jit
-
+from numba import jitclass, jit
+from numba import int64, float64
+spec = [
+    ('T', float64),
+    ('dt', float64),
+    ('s0', float64[:]),
+    ('boundaries', float64[:]),
+    ('state_dim', float64),
+    ('n',int64),
+    ('u_init',float64[:])
+]
 
 class Solver:
 
@@ -14,7 +23,11 @@ class Solver:
                         [0, T]]).T
     state_dim = boundaries.shape[1]
     n = int(ceil(T/dt))
-    
+    u_init = rand(state_dim)*(boundaries[1]- \
+            boundaries[0]) + boundaries[0]
+    u_init[-1] = 0.0
+
+
     @jit(nopython=True)
     def primal_step(u0,s,n=1):
         state_dim= u0.size
@@ -25,7 +38,7 @@ class Solver:
             u = primal_halfstep(u,s,1.,1.)
         u[3] = u0[3]
         return u
-    
+'''    
     @jit(nopython=True)
     def primal_halfstep(u,s0,sigma,a):
         emmu = exp(-s0[1])
@@ -85,7 +98,8 @@ class Solver:
     
         res = zeros(state_dim)
         epsi = 1.e-5
-        '''
+'''
+'''
         x = u[0]
         y = u[1]
         z = u[2]
@@ -146,7 +160,8 @@ class Solver:
         res[0] = hatphi*ddtheta*dthetadx + hattheta*ddphi*dphidx
         res[1] = hatphi*ddtheta*dthetady + hattheta*ddphi*dphidy
         res[2] = hatphi*ddtheta*dthetadz + hattheta*ddphi*dphidz
-        '''
+'''
+'''
         for l in range(state_dim):
             v0 = zeros(state_dim)
             v0[l] = 1.0
@@ -398,7 +413,8 @@ class Solver:
         else:
             return 0
         
-        '''
+'''
+'''
         slope = 20.0
         est = exp(slope*t)
         esc0 = exp(slope*c0)
@@ -414,9 +430,9 @@ class Solver:
         fn4 = (a2*esc4 + a1*est)/(esc4 + est)
     
         return fn0 + fn1 + fn2 + fn3 + fn4
-        '''
+'''
     
-    
+'''
     @jit(nopython=True)
     def diff_rot_freq(t):
         a0 = -1.0
@@ -435,7 +451,8 @@ class Solver:
         else:
             return 0
         
-        '''
+'''
+'''
         slope = 20.0
         est = exp(slope*t)
         esc0 = exp(slope*c0)
@@ -449,8 +466,8 @@ class Solver:
         fn3 = (a2*esc3 + a1*est)/(esc3 + est)
     
         return fn0 + fn1 + fn2 + fn3
-        '''
-    
+'''
+'''
     @jit(nopython=True)
     def ddiff_rot_freq_dt(t):
     
@@ -515,4 +532,4 @@ class Solver:
         dfn4 = esc4*est*slope*(a1-a2)/(esc4 + est)/(esc4 + est)
     
         return dfn0 + dfn1 + dfn2 + dfn3 + dfn4
- 
+''' 

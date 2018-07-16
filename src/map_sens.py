@@ -58,7 +58,7 @@ def solve_primal(u_init, n_steps, s):
     u = empty((n_steps, u_init.size))
     u[0] = u_init
     for i in range(1,n_steps):
-        u[i] = step(u[i-1],s)
+        u[i] = primal_step(u[i-1],s)
     return u
 
 @jit(nopython=True)
@@ -118,7 +118,7 @@ def compute_forward_adjoint(u,v0,w0,source_forward_adjoint):
     
 @jit(nopython=True)
 def compute_sensitivity(solver):
-u,s,v0,w0,J,dJ,dFds,dJds_0,source_forward_adjoint,N,n_runup_forward_adjoint
+#u,s,v0,w0,J,dJ,dFds,dJds_0,source_forward_adjoint,N,n_runup_forward_adjoint
     n_runup_forward_adjoint = 10
     n_steps_correlation = 10
     n_samples = 100000
@@ -127,13 +127,16 @@ u,s,v0,w0,J,dJ,dFds,dJds_0,source_forward_adjoint,N,n_runup_forward_adjoint
             n_steps_correlation  
 
     
-    t0 = clock()
+    #t0 = clock()
     u = solve_primal(u_init, n_steps, s0)
-    t1 = clock()
+    #t1 = clock()
     v0 = solve_unstable_direction(u, v0_init, n_steps, s0)
-    t2 = clock()
+    #t2 = clock()
+    dJds_unstable = zeros((n_points_theta,n_points_phi))
+    dJds_stable = zeros((n_points_theta,n_points_phi))
 
 
+    '''
     g = zeros(n_runup_forward_adjoint)
     w_inv = zeros((n_steps,state_dim))
     v = zeros(state_dim)
@@ -141,8 +144,6 @@ u,s,v0,w0,J,dJ,dFds,dJds_0,source_forward_adjoint,N,n_runup_forward_adjoint
     n_points_phi = J.shape[2]
     gsum_mean = 0.0
     gsum_history = zeros(n_steps)
-    dJds_unstable = zeros((n_points_theta,n_points_phi))
-    dJds_stable = zeros((n_points_theta,n_points_phi))
     dFds_unstable = zeros(state_dim)
     n_samples = N - 2*n_runup_forward_adjoint
     for n in range(N-1):
@@ -165,6 +166,7 @@ u,s,v0,w0,J,dJ,dFds,dJds_0,source_forward_adjoint,N,n_runup_forward_adjoint
                             (sum(g)-gsum_mean/n)/n_samples
                     dJds_stable[binno_t,binno_p] += \
                             dot(dJ[n+1,binno_t,binno_p], v)/n_samples
-    return dJds_stable, dJds_unstable, w_inv, gsum_history
+    '''
+    return dJds_stable, dJds_unstable
 
 

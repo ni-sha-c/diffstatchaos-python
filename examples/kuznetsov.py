@@ -1,24 +1,112 @@
 from pylab import *
 from numpy import *
-from numba import jit
+from numba import jitclass, jit
+from numba import int64, float64
+spec = [
+    ('T', float64),
+    ('dt', float64),
+    ('s0', float64[:]),
+    ('boundaries', float64[:,:]),
+    ('state_dim', int64),
+    ('param_dim', int64),
+    ('n_poincare',int64),
+    ('u_init',float64[:])
+]
 
-
+@jitclass(spec)
 class Solver:
 
-    dt = 2.e-3
-    s0 = array([1.0,1.0])
-    T = 6.0
-    boundaries = array([[-1, 1],
-                        [-1, 1],
-                        [-1, 1],
-                        [0, T]]).T
-    state_dim = boundaries.shape[1]
-    n_poincare = int(ceil(T/dt))
+    def __init__(self):
+        self.dt = 2.e-3
+        self.s0 = array([1.0,1.0])
+        self.T = 6.0
+        self.state_dim = 4
+        self.boundaries = ones((2,self.state_dim))        
+        self.boundaries[0] = -1.
+        self.boundaries[0,-1] = 0.
+        self.boundaries[1,-1] = self.T
+        self.n_poincare = int(ceil(self.T/self.dt))
+        self.u_init = rand(self.state_dim)*(self.boundaries[1]- \
+                     self.boundaries[0]) + self.boundaries[0]
+        self.u_init[-1] = 0.0
+        self.param_dim = self.s0.size
+     
+
+    #@jit(nopython=True)
+    def diff_rot_freq(self,t):
+        a0 = -1.0
+        a1 = 0.0
+        a2 = 1.0
+        c0 = 1.0
+        c1 = 2.0
+        c2 = 4.0
+        c3 = 5.0 
     
-    @jit(nopython=True)
-    def primal_step(u0,s,n=1):
-        state_dim= u0.size
-        param_dim= s.size
+        
+        if t > c0 and t < c1:
+            return -1
+        elif t > c2 and t < c3:
+            return 1
+        else:
+            return 0
+        
+        '''
+        slope = 20.0
+        est = exp(slope*t)
+        esc0 = exp(slope*c0)
+        esc1 = exp(slope*c1)
+        esc2 = exp(slope*c2)
+        esc3 = exp(slope*c3)
+    	
+        fn0 = (a1*esc0 + a0*est)/(esc0 + est)	
+        fn1 = (a0*esc1 + a1*est)/(esc1 + est)
+        fn2 = (a1*esc2 + a2*est)/(esc2 + est)
+        fn3 = (a2*esc3 + a1*est)/(esc3 + est)
+    
+        return fn0 + fn1 + fn2 + fn3
+        '''
+
+    #@jit(nopython=True)
+    def rot_freq(self,t): 
+        a0 = -1.0
+        a1 = 0.0
+        a2 = 1.0
+    
+        c0 = 2.0
+        c1 = 3.0
+        c2 = 5.0
+        c3 = 6.0
+        c4 = 0.0
+    
+        
+        if t > c0 and t < c1:
+            return -1
+        elif t > c2 and t < c3:
+            return 1
+        else:
+            return 0
+        
+        '''
+        slope = 20.0
+        est = exp(slope*t)
+        esc0 = exp(slope*c0)
+        esc1 = exp(slope*c1)
+        esc2 = exp(slope*c2)
+        esc3 = exp(slope*c3)
+        esc4 = exp(slope*c4)
+    
+        fn0 = (a1*esc0 + a0*est)/(esc0 + est)	
+        fn1 = (a0*esc1 + a1*est)/(esc1 + est)
+        fn2 = (a1*esc2 + a2*est)/(esc2 + est)
+        fn3 = (a2*esc3 + a1*est)/(esc3 + est)
+        fn4 = (a2*esc4 + a1*est)/(esc4 + est)
+    
+        return fn0 + fn1 + fn2 + fn3 + fn4
+        '''
+
+
+    #@jit(nopython=True)
+    def primal_step(self,u0,s,n=1):
         u = copy(u0)
         for i in arange(n):
             x = u[0]
@@ -26,9 +114,10 @@ class Solver:
             z = u[2]
             r2 = x**2.0 + y**2.0 + z**2.0
             r = sqrt(r2)
-            sigma = diff_rot_freq(u[3])
-            a = rot_freq(u[3])
-    
+            sigma = self.diff_rot_freq(u[3])
+            a = self.rot_freq(u[3])
+            dt = self.dt
+            T = self.T
             coeff1 = sigma*pi*0.5*(z*sqrt(2) + 1)
             coeff2 = s[0]*(1. - sigma*sigma - a*a)
             coeff3 = s[1]*a*a*(1.0 - r)
@@ -47,8 +136,8 @@ class Solver:
         return u
     
     
-    @jit(nopython=True)
-    def objective(u,s,theta0,dtheta,phi0,dphi):
+    #@jit(nopython=True)
+    def objective(self,u,s,theta0,dtheta,phi0,dphi):
         r = sqrt(u[0]**2.0 + u[1]**2.0 + u[2]**2.0)
         theta = 0.0
         if(r > 0):
@@ -71,8 +160,8 @@ class Solver:
                 max(0.0, min(1.0+tfrac,1.0-tfrac)))
         return obj1
     
-    @jit(nopython=True)
-    def Dobjective(u,s,theta0,dtheta,phi0,dphi):
+    #@jit(nopython=True)
+    def Dobjective(self,u,s,theta0,dtheta,phi0,dphi):
     
         res = zeros(state_dim)
         epsi = 1.e-5
@@ -149,7 +238,7 @@ class Solver:
     
         return res
     
-    def convert_to_spherical(u):
+    def convert_to_spherical(self,u):
         x = u[0]
         y = u[1]
         z = u[2]
@@ -158,8 +247,8 @@ class Solver:
         phi = arctan2(y,x)
         return r,theta,phi
     
-    @jit(nopython=True)
-    def stereographic_projection(u):
+    #@jit(nopython=True)
+    def stereographic_projection(self,u):
         x = u[0]
         y = u[1]
         z = u[2]
@@ -170,8 +259,8 @@ class Solver:
     
         return re_part,im_part
     
-    @jit(nopython=True)
-    def tangent_source(v0, u, s, ds):
+    #@jit(nopython=True)
+    def tangent_source(self,v0, u, s, ds):
         v = copy(v0)
         x = u[0]
         y = u[1]
@@ -199,8 +288,8 @@ class Solver:
     
     
     
-    @jit(nopython=True)
-    def DfDs(u,s):
+    #@jit(nopython=True)
+    def DfDs(self,u,s):
         param_dim = s.size
         dfds = zeros((param_dim,state_dim))
         ds1 = array([1.0, 0.0])
@@ -210,8 +299,8 @@ class Solver:
         return dfds
     
     
-    @jit(nopython=True)
-    def gradfs(u,s):
+    #@jit(nopython=True)
+    def gradfs(self,u,s):
     
     	x = u[0]
     	y = u[1]
@@ -289,8 +378,8 @@ class Solver:
    
     
     
-    @jit(nopython=True)
-    def divGradfs(u,s):
+    #@jit(nopython=True)
+    def divGradfs(self,u,s):
         x = u[0]
         y = u[1]
         z = u[2]
@@ -356,8 +445,8 @@ class Solver:
     
     
     
-    @jit(nopython=True)
-    def divDfDs(u,s):
+    #@jit(nopython=True)
+    def divDfDs(self,u,s):
     
         param_dim = s.size
         ddfds = zeros(param_dim)
@@ -384,8 +473,8 @@ class Solver:
                       dcoeff3_ds2 + d2coeff3_ds2dz)
         return ddfds 
     
-    @jit(nopython=True)
-    def tangent_step(v0,u,s,ds):
+    #@jit(nopython=True)
+    def tangent_step(self,v0,u,s,ds):
     
     	x = u[0]
     	y = u[1]
@@ -463,81 +552,11 @@ class Solver:
     
     	
     
-    @jit(nopython=True)
-    def rot_freq(t): 
-        a0 = -1.0
-        a1 = 0.0
-        a2 = 1.0
-    
-        c0 = 2.0
-        c1 = 3.0
-        c2 = 5.0
-        c3 = 6.0
-        c4 = 0.0
+        
     
         
-        if t > c0 and t < c1:
-            return -1
-        elif t > c2 and t < c3:
-            return 1
-        else:
-            return 0
-        
-        '''
-        slope = 20.0
-        est = exp(slope*t)
-        esc0 = exp(slope*c0)
-        esc1 = exp(slope*c1)
-        esc2 = exp(slope*c2)
-        esc3 = exp(slope*c3)
-        esc4 = exp(slope*c4)
-    
-        fn0 = (a1*esc0 + a0*est)/(esc0 + est)	
-        fn1 = (a0*esc1 + a1*est)/(esc1 + est)
-        fn2 = (a1*esc2 + a2*est)/(esc2 + est)
-        fn3 = (a2*esc3 + a1*est)/(esc3 + est)
-        fn4 = (a2*esc4 + a1*est)/(esc4 + est)
-    
-        return fn0 + fn1 + fn2 + fn3 + fn4
-        '''
-    
-    
-    @jit(nopython=True)
-    def diff_rot_freq(t):
-        a0 = -1.0
-        a1 = 0.0
-        a2 = 1.0
-        c0 = 1.0
-        c1 = 2.0
-        c2 = 4.0
-        c3 = 5.0 
-    
-        
-        if t > c0 and t < c1:
-            return -1
-        elif t > c2 and t < c3:
-            return 1
-        else:
-            return 0
-        
-        '''
-        slope = 20.0
-        est = exp(slope*t)
-        esc0 = exp(slope*c0)
-        esc1 = exp(slope*c1)
-        esc2 = exp(slope*c2)
-        esc3 = exp(slope*c3)
-    	
-        fn0 = (a1*esc0 + a0*est)/(esc0 + est)	
-        fn1 = (a0*esc1 + a1*est)/(esc1 + est)
-        fn2 = (a1*esc2 + a2*est)/(esc2 + est)
-        fn3 = (a2*esc3 + a1*est)/(esc3 + est)
-    
-        return fn0 + fn1 + fn2 + fn3
-        '''
-    
-    @jit(nopython=True)
-    def ddiff_rot_freq_dt(t):
+    #@jit(nopython=True)
+    def ddiff_rot_freq_dt(self,t):
     
         a0 = -1.0
         a1 = 0.0
@@ -566,8 +585,8 @@ class Solver:
     
     
     
-    @jit(nopython=True)
-    def drot_freq_dt(t):
+    #@jit(nopython=True)
+    def drot_freq_dt(self,t):
         
         a0 = -1.0
         a1 = 0.0
@@ -603,8 +622,8 @@ class Solver:
     
     
     
-    @jit(nopython=True)
-    def adjoint_step(y1,u,s,dJ):
+    #@jit(nopython=True)
+    def adjoint_step(self,y1,u,s,dJ):
     
     
     	y0 = copy(y1)
