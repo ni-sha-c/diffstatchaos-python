@@ -46,7 +46,7 @@ class Sensitivity:
 
 
     #@jit(nopython=True)
-    def solve_unstable_direction(self,solver_ode, u, v_init, n_steps, s):
+    def solve_unstable_direction(self, solver_ode, u, v_init, n_steps, s):
         v = empty((n_steps, v_init.size))
         v[0] = v_init
         for i in range(1,n_steps):
@@ -56,45 +56,50 @@ class Sensitivity:
         return v
     
     #@jit(nopython=True)
-    def solve_unstable_adjoint_direction(self,u, w_init, n_steps, s, dJ):
+    def solve_unstable_adjoint_direction(self, solver_ode, \
+            u, w_init, n_steps, s):
         w = empty((n_steps, w_init.size))
         w[-1] = w_init
+        dJ = zeros(w_init.size)
         for i in range(n_steps-1,0,-1):
-            w[i-1] = adjoint_step(w[i],u[i-1],s,dJ)
+            w[i-1] = solver_ode.adjoint_step(w[i],u[i-1],s,dJ)
             w[i-1] /= norm(w[i-1])
         return w
     
     #@jit(nopython=True)
-    def compute_source_tangent(self,u, n_steps, s0):
+    def compute_source_tangent(self, solver_ode, u, n_steps, s0):
         param_dim = s0.size
         dfds = zeros((n_steps,param_dim,state_dim))
+        DfDs = solver_ode.DfDs
         for i in range(n_steps):
             dfds[i] = DfDs(u[i],s0)
         return dfds
     
     #@jit(nopython=True)
-    def compute_source_inverse_adjoint(self,u, n_steps, s0):
+    def compute_source_inverse_adjoint(self, solver_ode, u, n_steps, s0):
         dgf = zeros((n_steps,state_dim))
         for i in range(n_steps):
-            dgf[i] = divGradfs(u[i],s0)
+            dgf[i] = solver_ode.divGradfs(u[i],s0)
         return dgf
     
     
     #@jit(nopython=True)
-    def compute_source_sensitivity(self,u, n_steps, s0):
+    def compute_source_sensitivity(self, solver_ode, u, n_steps, s0):
         param_dim = s0.size
         ddfds = zeros((n_steps,param_dim))
         for i in range(n_steps):
-            ddfds[i] = divDfDs(u[i],s0)
+            ddfds[i] = solver_ode.divDfDs(u[i],s0)
         return ddfds
     
     
     #@jit(nopython=True)
-    def compute_objective(self,u,s0,n_steps,n_theta=25,n_phi=25):
+    def compute_objective(self, solver_ode, u, s0, n_steps,\
+            n_theta=25,n_phi=25):
         theta_bin_centers = linspace(0,pi,n_theta)
         phi_bin_centers = linspace(-pi,pi,n_phi)
         dtheta = pi/(n_theta-1)
         dphi = 2*pi/(n_phi-1)
+        objective = solver_ode.objective
         J_theta_phi = zeros((n_steps,n_theta,n_phi))
         for i in arange(1,n_steps):
             for t_ind, theta0 in enumerate(theta_bin_centers):
@@ -114,11 +119,13 @@ class Sensitivity:
     
     
     #@jit(nopython=True)
-    def compute_gradient_objective(self,u,s0,n_steps,n_theta=25,n_phi=25):
+    def compute_gradient_objective(self,solver_ode,\
+            u,s0,n_steps,n_theta=25,n_phi=25):
         theta_bin_centers = linspace(0,pi,n_theta)
         phi_bin_centers = linspace(-pi,pi,n_phi)
         dtheta = pi/(n_theta-1)
         dphi = 2*pi/(n_phi-1)
+        Dobjective = solver_ode.Dobjective
         DJ_theta_phi = zeros((n_steps,n_theta,n_phi,state_dim))
         for i in arange(1,n_steps):
             for t_ind, theta0 in enumerate(theta_bin_centers):
@@ -127,43 +134,7 @@ class Sensitivity:
                             s0,theta0,dtheta,phi0,dphi)
         return DJ_theta_phi 
     
-    #@jit(nopython=True)    
-    def compute_finite_difference_sensitivity(self,n_samples,s0,n_points_theta, \
-            n_points_phi):
-    
-        um = (rand(state_dim)*(boundaries[1]-boundaries[0]) + 
-                          boundaries[0])
-        up = copy(um)
-        sm = copy(s0)
-        sp = copy(s0)
-        epsi = 1.e-4
-        sm[0] -= epsi
-        sp[0] += epsi
-        up = primal_step(up,sp,n_runup)
-        um = primal_step(um,sm,n_runup)
-        epsi = 1.e-4
-        J_sum_m = zeros((n_points_theta,n_points_phi))
-        J_sum_p = zeros((n_points_theta,n_points_phi))
-        dJds_fd = zeros((n_points_theta,n_points_phi))
-        n_steps = 100000
-         
-        for i in arange(n_samples):
-            um_traj = solve_primal(um,n_steps,sm)
-            up_traj = solve_primal(up,n_steps,sp)
-            
-            J_sum_m += (compute_objective(um_traj,sm,n_steps,\
-                    n_points_theta,\
-                    n_points_phi)).sum(0)/n_samples
-            
-            J_sum_p += (compute_objective(up_traj,sp,n_steps,\
-                    n_points_theta,\
-                    n_points_phi)).sum(0)/n_samples
-            dJds_fd += (J_sum_p-J_sum_m) \
-                                    / (2.0*epsi)/n_samples
-            um = copy(um_traj[-1])
-            up = copy(up_traj[-1])
-        return dJds_fd
-    
+        
     #@jit(nopython=True)
     def compute_correlation_Jg(self,cumsum_J, \
             ddfds,n_samples):
@@ -174,7 +145,7 @@ class Sensitivity:
     
     
     #@jit(nopython=True)
-    def compute_sensitivity(self,u,s0,v0,w0,dJ,ds,dfds,cumsumJ,N,Ninf):
+    def compute_sensitivity(self,solver_ode):
         N_padded = u.shape[0]
         v = zeros(state_dim)
         dJ0 = zeros(state_dim)
