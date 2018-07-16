@@ -117,12 +117,20 @@ def compute_forward_adjoint(u,v0,w0,source_forward_adjoint):
     assert(v0.shape==w0.shape==source_forward_adjoint.shape==u.shape)
     
 @jit(nopython=True)
-def compute_sensitivity(u,s,v0,w0,J,dJ,dFds,dJds_0,source_forward_adjoint,N,n_runup_forward_adjoint):
+def compute_sensitivity(solver):
+u,s,v0,w0,J,dJ,dFds,dJds_0,source_forward_adjoint,N,n_runup_forward_adjoint
+    n_runup_forward_adjoint = 10
+    n_steps_correlation = 10
+    n_samples = 100000
+    n_runup = 100
+    n_steps = n_samples + n_runup_forward_adjoint +\
+            n_steps_correlation  
 
+    
     t0 = clock()
     u = solve_primal(u_init, n_steps, s0)
     t1 = clock()
-    v0 = solve_poincare_unstable_direction(u, v0_init, n_steps, s0)
+    v0 = solve_unstable_direction(u, v0_init, n_steps, s0)
     t2 = clock()
 
 
@@ -140,7 +148,7 @@ def compute_sensitivity(u,s,v0,w0,J,dJ,dFds,dJds_0,source_forward_adjoint,N,n_ru
     for n in range(N-1):
         b = dJds_0[n]
         q = source_forward_adjoint[n]
-        nablaFs = gradFs_poincare(u[n],s)   
+        nablaFs = gradFs(u[n],s)   
         w_inv[n+1] = -1.0*q + solve(nablaFs.T, w_inv[n])
         w_inv[n+1] = dot(w_inv[n+1], v0[n+1]) * v0[n+1]
         g[n % n_runup_forward_adjoint] = dot(w_inv[n+1],dFds_unstable) - b   
