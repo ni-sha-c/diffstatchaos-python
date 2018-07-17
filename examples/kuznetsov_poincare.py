@@ -1,50 +1,52 @@
 from pylab import *
 from numpy import *
-from numba import jitclass, jit
+from numba import jitclass
 from numba import int64, float64
 spec = [
     ('T', float64),
     ('dt', float64),
     ('s0', float64[:]),
-    ('boundaries', float64[:]),
-    ('state_dim', float64),
-    ('n',int64),
+    ('boundaries', float64[:,:]),
+    ('state_dim', int64),
+    ('n_poincare',int64),
+    ('param_dim', int64),
     ('u_init',float64[:])
 ]
-
+@jitclass(spec)
 class Solver:
 
-    dt = 2.e-3
-    s0 = array([1.0,1.0])
-    T = 6.0
-    boundaries = array([[-1, 1],
-                        [-1, 1],
-                        [-1, 1],
-                        [0, T]]).T
-    state_dim = boundaries.shape[1]
-    n = int(ceil(T/dt))
-    u_init = rand(state_dim)*(boundaries[1]- \
-            boundaries[0]) + boundaries[0]
-    u_init[-1] = 0.0
+    def __init__(self):
+        self.dt = 2.e-3
+        self.s0 = array([1.0,1.0])
+        self.T = 6.0
+        self.state_dim = 4
+        self.boundaries = ones((2,self.state_dim))        
+        self.boundaries[0] = -1.
+        self.boundaries[0,-1] = 0.
+        self.boundaries[1,-1] = self.T
+        self.n_poincare = int(ceil(self.T/self.dt))
+        self.u_init = rand(self.state_dim)*(self.boundaries[1]- \
+                     self.boundaries[0]) + self.boundaries[0]
+        self.u_init[-1] = 0.0
+        self.param_dim = self.s0.size
 
 
-    @jit(nopython=True)
-    def primal_step(u0,s,n=1):
-        state_dim= u0.size
-        param_dim= s.size
+    
+    def primal_step(self,u0,s,n=1):
         u = copy(u0)
         for i in range(n):
-            u = primal_halfstep(u,s,-1.,-1.)
-            u = primal_halfstep(u,s,1.,1.)
+            u = self.primal_halfstep(u,s,-1.,-1.)
+            u = self.primal_halfstep(u,s,1.,1.)
         u[3] = u0[3]
         return u
-'''    
-    @jit(nopython=True)
-    def primal_halfstep(u,s0,sigma,a):
+    
+    
+    def primal_halfstep(self,u,s0,sigma,a):
         emmu = exp(-s0[1])
         x = u[0]
         y = u[1]
         z = u[2]
+        T = self.T
         r2 = (x**2.0 + y**2.0 + z**2.0)
         r = sqrt(r2)
         rxy2 = x**2.0 + y**2.0
@@ -69,8 +71,8 @@ class Solver:
     
         return u1
 
-    @jit(nopython=True)
-    def objective(u,s,theta0,dtheta,phi0,dphi):
+    
+    def objective(self,u,s,theta0,dtheta,phi0,dphi):
         r = sqrt(u[0]**2.0 + u[1]**2.0 + u[2]**2.0)
         theta = 0.0
         if(r > 0):
@@ -93,13 +95,13 @@ class Solver:
                 max(0.0, min(1.0+tfrac,1.0-tfrac)))
         return obj1
     
-    @jit(nopython=True)
-    def Dobjective(u,s,theta0,dtheta,phi0,dphi):
+    
+    def Dobjective(self,u,s,theta0,dtheta,phi0,dphi):
     
         res = zeros(state_dim)
         epsi = 1.e-5
-'''
-'''
+
+        '''
         x = u[0]
         y = u[1]
         z = u[2]
@@ -160,20 +162,20 @@ class Solver:
         res[0] = hatphi*ddtheta*dthetadx + hattheta*ddphi*dphidx
         res[1] = hatphi*ddtheta*dthetady + hattheta*ddphi*dphidy
         res[2] = hatphi*ddtheta*dthetadz + hattheta*ddphi*dphidz
-'''
-'''
+        '''
+
         for l in range(state_dim):
             v0 = zeros(state_dim)
             v0[l] = 1.0
-            res[l] = (objective(u+epsi*v0,\
+            res[l] = (self.objective(u+epsi*v0,\
                     s,theta0,dtheta,phi0,dphi)- \
-                    objective(u-epsi*v0,s,theta0,dtheta,\
+                    self.objective(u-epsi*v0,s,theta0,dtheta,\
                     phi0,dphi))/(2.0*epsi)
     
     
         return res
     
-    def convert_to_spherical(u):
+    def convert_to_spherical(self,u):
         x = u[0]
         y = u[1]
         z = u[2]
@@ -182,8 +184,8 @@ class Solver:
         phi = arctan2(y,x)
         return r,theta,phi
     
-    @jit(nopython=True)
-    def stereographic_projection(u):
+    
+    def stereographic_projection(self,u):
         x = u[0]
         y = u[1]
         z = u[2]
@@ -193,8 +195,8 @@ class Solver:
         im_part = y*sqrt(2.0)/deno
     
         return re_part,im_part
-    @jit(nopython=True)
-    def tangent_source_half(v,u,s0,ds,sigma,a):
+    
+    def tangent_source_half(self,v,u,s0,ds,sigma,a):
         emmu = exp(-s0[1])
         x = u[0]
         y = u[1]
@@ -236,25 +238,27 @@ class Solver:
         return v1
     
     
-    @jit(nopython=True)
-    def tangent_source(v,u,s,ds):
-        uhalf = primal_halfstep(u,s,-1.,-1)
-        vhalf = tangent_source_half(v,uhalf,s,ds,1.,1.)
-        vfull = vhalf + dot(gradFs_halfstep(uhalf,s,1.,1.),\
-                tangent_source_half(zeros(state_dim),\
+    
+    def tangent_source(self,v,u,s,ds):
+        uhalf = self.primal_halfstep(u,s,-1.,-1)
+        vhalf = self.tangent_source_half(v,uhalf,s,ds,1.,1.)
+        vfull = vhalf + dot(self.gradFs_halfstep(uhalf,s,1.,1.),\
+                self.tangent_source_half(zeros(state_dim),\
                 u,s,ds,-1,-1))
         return vfull
-    @jit(nopython=True)
-    def DFDs(u,s):
-        param_dim = s.size
+    
+    def DFDs(self,u,s):
+        param_dim = self.param_dim
+        state_dim = self.state_dim
         dfds = zeros((param_dim,state_dim))
         ds1 = array([1.0, 0.0])
         ds2 = array([0.0, 1.0])
-        dfds[0] = tangent_source(zeros(state_dim),u,s,ds1)
-        dfds[1] = tangent_source(zeros(state_dim),u,s,ds2)
+        dfds[0] = self.tangent_source(zeros(state_dim),u,s,ds1)
+        dfds[1] = self.tangent_source(zeros(state_dim),u,s,ds2)
         return dfds
-    @jit(nopython=True)
-    def gradFs_halfstep(u,s,sigma,a):
+    
+    def gradFs_halfstep(self,u,s,sigma,a):
+        state_dim = self.state_dim
         emmu = exp(-s0[1])
         x = u[0]
         y = u[1]
@@ -343,16 +347,17 @@ class Solver:
         return dFdu
     
     
-    @jit(nopython=True)
-    def gradFs(u,s):
     
-        u_nphalf = primal_halfstep(u,s,-1,-1)
-        gradFs_half = gradFs_halfstep(u,s,-1,-1)
-        gradFs_full = gradFs_halfstep(u_nphalf,s,1,1)
+    def gradFs(self,u,s):
+    
+        u_nphalf = self.primal_halfstep(u,s,-1,-1)
+        gradFs_half = self.gradFs_halfstep(u,s,-1,-1)
+        gradFs_full = self.gradFs_halfstep(u_nphalf,s,1,1)
         return dot(gradFs_full,gradFs_half)
-    @jit(nopython=True)
-    def divGradFsinv(u,s):
+    
+    def divGradFsinv(self,u,s):
         epsi = 1.e-4
+        state_dim = self.state_dim
         div_DFDu_inv = zeros(state_dim)
         #I have no better choice here.
         for i in range(state_dim):
@@ -360,17 +365,18 @@ class Solver:
             uminus = copy(u)
             uplus[i] += epsi
             uminus[i] -= epsi
-            DFDu_inv_plus = inv(gradFs(uplus,s))[i]
-            DFDu_inv_minus = inv(gradFs(uminus,s))[i]
+            DFDu_inv_plus = inv(self.gradFs(uplus,s))[i]
+            DFDu_inv_minus = inv(self.gradFs(uminus,s))[i]
             div_DFDu_inv += (DFDu_inv_plus - DFDu_inv_minus)/ \
                     (2*epsi)
         return div_DFDu_inv
     
-    @jit(nopython=True)
-    def trace_gradDFDs_gradFsinv(u,s):
+    
+    def trace_gradDFDs_gradFsinv(self,u,s):
         epsi = 1.e-4
-        DFDuinv = inv(gradFs(u,s))
-        param_dim = s.size
+        DFDuinv = inv(self.gradFs(u,s))
+        param_dim = self.param_dim
+        state_dim = self.state_dim
         res = zeros(param_dim)
         for i in range(state_dim):
             uplus = copy(u)
@@ -380,156 +386,18 @@ class Solver:
             diDFDs = (DFDs(uplus,s) - DFDs(uminus,s))/(2*epsi)
             res += dot(diDFDs,DFDuinv[i])
         return res
-    @jit(nopython=True)
-    def tangent_step(v0,u,s,ds):
     
-        v1 = dot(gradFs(u,s),v0) 
-        v1 = tangent_source(v1,u,s,ds)
+    def tangent_step(self,v0,u,s,ds):
+    
+        v1 = dot(self.gradFs(u,s),v0) 
+        v1 = self.tangent_source(v1,u,s,ds)
         return v1
     	
-    @jit(nopython=True)
-    def adjoint_step(w1,u,s,dJ):
     
-        w0 = dot(gradFs(u,s).T,w1) 
+    def adjoint_step(self,w1,u,s,dJ):
+    
+        w0 = dot(self.gradFs(u,s).T,w1) 
         w0 += dJ
         return w0
-    @jit(nopython=True)
-    def rot_freq(t): 
-        a0 = -1.0
-        a1 = 0.0
-        a2 = 1.0
-    
-        c0 = 2.0
-        c1 = 3.0
-        c2 = 5.0
-        c3 = 6.0
-        c4 = 0.0
-    
-        
-        if t > c0 and t < c1:
-            return -1
-        elif t > c2 and t < c3:
-            return 1
-        else:
-            return 0
-        
-'''
-'''
-        slope = 20.0
-        est = exp(slope*t)
-        esc0 = exp(slope*c0)
-        esc1 = exp(slope*c1)
-        esc2 = exp(slope*c2)
-        esc3 = exp(slope*c3)
-        esc4 = exp(slope*c4)
-    
-        fn0 = (a1*esc0 + a0*est)/(esc0 + est)	
-        fn1 = (a0*esc1 + a1*est)/(esc1 + est)
-        fn2 = (a1*esc2 + a2*est)/(esc2 + est)
-        fn3 = (a2*esc3 + a1*est)/(esc3 + est)
-        fn4 = (a2*esc4 + a1*est)/(esc4 + est)
-    
-        return fn0 + fn1 + fn2 + fn3 + fn4
-'''
-    
-'''
-    @jit(nopython=True)
-    def diff_rot_freq(t):
-        a0 = -1.0
-        a1 = 0.0
-        a2 = 1.0
-        c0 = 1.0
-        c1 = 2.0
-        c2 = 4.0
-        c3 = 5.0 
-    
-        
-        if t > c0 and t < c1:
-            return -1
-        elif t > c2 and t < c3:
-            return 1
-        else:
-            return 0
-        
-'''
-'''
-        slope = 20.0
-        est = exp(slope*t)
-        esc0 = exp(slope*c0)
-        esc1 = exp(slope*c1)
-        esc2 = exp(slope*c2)
-        esc3 = exp(slope*c3)
-    	
-        fn0 = (a1*esc0 + a0*est)/(esc0 + est)	
-        fn1 = (a0*esc1 + a1*est)/(esc1 + est)
-        fn2 = (a1*esc2 + a2*est)/(esc2 + est)
-        fn3 = (a2*esc3 + a1*est)/(esc3 + est)
-    
-        return fn0 + fn1 + fn2 + fn3
-'''
-'''
-    @jit(nopython=True)
-    def ddiff_rot_freq_dt(t):
-    
-        a0 = -1.0
-        a1 = 0.0
-        a2 = 1.0
-    
-        c0 = 1.0
-        c1 = 2.0
-        c2 = 4.0
-        c3 = 5.0 
-    
-        slope = 20.0
-        est = exp(slope*t)
-        esc0 = exp(slope*c0)
-        esc1 = exp(slope*c1)
-        esc2 = exp(slope*c2)
-        esc3 = exp(slope*c3)
     
     
-        dfn0 = esc0*est*slope*(a0-a1)/(esc0 + est)/(esc0 + est)
-        dfn1 = esc1*est*slope*(a1-a0)/(esc1 + est)/(esc1 + est)
-        dfn2 = esc2*est*slope*(a2-a1)/(esc2 + est)/(esc2 + est)
-        dfn3 = esc3*est*slope*(a1-a2)/(esc3 + est)/(esc3 + est)
-    
-        return dfn0 + dfn1 + dfn2 + dfn3 
-    
-    
-    
-    
-    @jit(nopython=True)
-    def drot_freq_dt(t):
-        
-        a0 = -1.0
-        a1 = 0.0
-        a2 = 1.0
-    
-        c0 = 2.0
-        c1 = 3.0
-        c2 = 5.0
-        c3 = 6.0 
-        c4 = 0.0
-    
-        slope = 20.0
-        est = exp(slope*t)
-        esc0 = exp(slope*c0)
-        esc1 = exp(slope*c1)
-        esc2 = exp(slope*c2)
-        esc3 = exp(slope*c3)
-        esc4 = exp(slope*c4)
-    
-        fn0 = (a1*esc0 + a0*est)/(esc0 + est)	
-        fn1 = (a0*esc1 + a1*est)/(esc1 + est)
-        fn2 = (a1*esc2 + a2*est)/(esc2 + est)
-        fn3 = (a2*esc3 + a1*est)/(esc3 + est)
-        fn4 = (a2*esc4 + a1*est)/(esc4 + est)
-    
-        dfn0 = esc0*est*slope*(a0-a1)/(esc0 + est)/(esc0 + est)
-        dfn1 = esc1*est*slope*(a1-a0)/(esc1 + est)/(esc1 + est)
-        dfn2 = esc2*est*slope*(a2-a1)/(esc2 + est)/(esc2 + est)
-        dfn3 = esc3*est*slope*(a1-a2)/(esc3 + est)/(esc3 + est)
-        dfn4 = esc4*est*slope*(a1-a2)/(esc4 + est)/(esc4 + est)
-    
-        return dfn0 + dfn1 + dfn2 + dfn3 + dfn4
-''' 
