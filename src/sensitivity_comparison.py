@@ -39,13 +39,26 @@ if __name__ == "__main__":
 
     n_pad = 10 
     n_comp = n_steps_map - 2*n_pad
-    v0 = v0[n_pad:-n_pad]
+    v0 = v0[n_pad:]
     v0_map = v0_map[n_pad:-n_pad]
-    w0 = w0[n_pad:-n_pad]
+    w0 = w0[:-n_pad]
     w0_map = w0_map[n_pad:-n_pad]
+    tan_src = tan_src[n_pad:-n_pad]
+    tan_src_map = tan_src_map[n_pad:-n_pad]
+    foradj_src = foradj_src[n_pad:-n_pad]
+    foradj_src_map = foradj_src_map[n_pad:-n_pad]
+    sens_src = sens_src[n_pad:-n_pad]
+    sens_src_map = sens_src_map[n_pad:-n_pad]
+
+
+
+
 
     diff_v0 = zeros(n_comp)
     diff_w0 = zeros(n_comp)
+    diff_tan_src = zeros(n_comp)
+    diff_foradj_src = zeros(n_comp)
+    diff_sens_src = zeros(n_comp)
 
     for i in range(n_comp):
         diff_v0[i] = min(norm(v0[i]-v0_map[i]),\
@@ -56,20 +69,14 @@ if __name__ == "__main__":
 
 
 
-    print('{:<70s}{:>16.10f}'.format(\
+    print('{:<60s}{:>16.10f}'.format(\
         "l_infty norm of difference in tangent unstable direction: ",\
         max(diff_v0)))
 
-    print('{:<70s}{:>16.10f}'.format(\
+    print('{:<60s}{:>16.10f}'.format(\
         "l_infty norm of difference in adjoint unstable direction: ",\
         max(diff_w0)))
-
     
-    # Objective functions and their gradients
-    print('{:<70s}{:>16.10f}'.format(\
-        "l_infty norm of difference in tangent unstable direction: ",\
-        max(norm(J-J_map))))
-
 
 
 

@@ -46,7 +46,7 @@ class Solver:
         c2 = 4.0
         c3 = 5.0 
     
-        ''' 
+         
         if t > c0 and t < c1:
             return -1
         elif t > c2 and t < c3:
@@ -68,7 +68,7 @@ class Solver:
         fn3 = (a2*esc3 + a1*est)/(esc3 + est)
     
         return fn0 + fn1 + fn2 + fn3
-        
+        '''
 
     #@jit(nopython=True)
     def rot_freq(self,t): 
@@ -82,7 +82,7 @@ class Solver:
         c3 = 6.0
         c4 = 0.0
     
-        ''' 
+         
         if t > c0 and t < c1:
             return -1
         elif t > c2 and t < c3:
@@ -106,7 +106,7 @@ class Solver:
         fn4 = (a2*esc4 + a1*est)/(esc4 + est)
     
         return fn0 + fn1 + fn2 + fn3 + fn4
-        
+        '''        
 
 
     #@jit(nopython=True)
@@ -564,7 +564,8 @@ class Solver:
         
     #@jit(nopython=True)
     def ddiff_rot_freq_dt(self,t):
-    
+   
+        '''
         a0 = -1.0
         a1 = 0.0
         a2 = 1.0
@@ -588,13 +589,14 @@ class Solver:
         dfn3 = esc3*est*slope*(a1-a2)/(esc3 + est)/(esc3 + est)
     
         return dfn0 + dfn1 + dfn2 + dfn3 
-    
+        '''
+        return 0.
     
     
     
     #@jit(nopython=True)
     def drot_freq_dt(self,t):
-        
+        ''' 
         a0 = -1.0
         a1 = 0.0
         a2 = 1.0
@@ -626,8 +628,8 @@ class Solver:
         dfn4 = esc4*est*slope*(a1-a2)/(esc4 + est)/(esc4 + est)
     
         return dfn0 + dfn1 + dfn2 + dfn3 + dfn4
-    
-    
+        '''
+        return 0.0
     
     #@jit(nopython=True)
     def adjoint_step(self,y1,u,s,dJ):
