@@ -155,9 +155,18 @@ class Sensitivity:
     
     
     def compute_forward_adjoint(self, solver_map,\
-            u,v0,w0,source_forward_adjoint):
-        n_steps = u.shape[1]
-        assert(v0.shape==w0.shape==source_forward_adjoint.shape==u.shape)
+            u, v0, source_foradj):
+        n_steps = u.shape[0]
+        state_dim = solver_map.state_dim
+        w_inv = zeros((n_steps,state_dim))
+        for i in range(n_steps - 1):
+            nablaFs = solver_map.gradFs(u[i],\
+                    solver_map.s0)
+            w_inv[i+1] = - source_foradj[i] + \
+                    linalg.solve(nablaFs.T, w_inv[i])
+            w_inv[i+1] = dot(w_inv[i+1], v0[i+1])*\
+                    v0[i+1]
+
         
     
     def precompute_sources(self,solver,u):
