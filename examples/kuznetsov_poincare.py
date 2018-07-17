@@ -259,7 +259,7 @@ class Solver:
     
     def gradFs_halfstep(self,u,s,sigma,a):
         state_dim = self.state_dim
-        emmu = exp(-s0[1])
+        emmu = exp(-s[1])
         x = u[0]
         y = u[1]
         z = u[2]
@@ -267,8 +267,8 @@ class Solver:
         r = sqrt(r2)
         rxy2 = x**2.0 + y**2.0
         rxy = sqrt(rxy2)
-        em2erxy2 = exp(-2.0*s0[0]*rxy2)
-        emerxy2 = exp(-s0[0]*rxy2)
+        em2erxy2 = exp(-2.0*s[0]*rxy2)
+        emerxy2 = exp(-s[0]*rxy2)
         term = pi*0.5*(z*sqrt(2) + 1)
         sterm = sin(term)
         cterm = cos(term)
@@ -277,10 +277,10 @@ class Solver:
         coeff2 = rxy/sqrt((x**2.0)*em2erxy2 + \
                 (y**2.0))
     
-        dem2erxy2_dx = exp(-2.0*s0[0]*rxy2)*(-2.0*s0[0])*(2.0*x)
-        dem2erxy2_dy = exp(-2.0*s0[0]*rxy2)*(-2.0*s0[0])*(2.0*y)
-        demerxy2_dx = exp(-s0[0]*rxy2)*(-s0[0])*(2.0*x)
-        demerxy2_dy = exp(-s0[0]*rxy2)*(-s0[0])*(2.0*y)
+        dem2erxy2_dx = exp(-2.0*s[0]*rxy2)*(-2.0*s[0])*(2.0*x)
+        dem2erxy2_dy = exp(-2.0*s[0]*rxy2)*(-2.0*s[0])*(2.0*y)
+        demerxy2_dx = exp(-s[0]*rxy2)*(-s[0])*(2.0*x)
+        demerxy2_dy = exp(-s[0]*rxy2)*(-s[0])*(2.0*y)
         dterm_dz = pi*0.5*sqrt(2)
         dsterm_dz = cos(term)*dterm_dz
         dcterm_dz = -sin(term)*dterm_dz

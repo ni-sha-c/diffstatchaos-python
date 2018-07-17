@@ -80,9 +80,9 @@ def visualize_unstable_direction():
     solver_map = kmap.Solver()
     u_init = solver_map.u_init
     n_map = solver_map.n_poincare
-    n_steps = 1000*n_map
+    n_steps = 500
     s0 = solver_map.s0
-    sens_object = flow_sens.Sensitivity()
+    sens_object = map_sens.Sensitivity()
     solve_primal = sens_object.solve_primal
     u_map = solve_primal(solver_map,\
             u_init,n_steps,s0)
@@ -91,8 +91,8 @@ def visualize_unstable_direction():
     v = solve_unstable_direction(solver_map,\
         u_map, rand(solver_map.state_dim),n_steps,\
         s0)
-    visualize_tangent_2D(u_map[::n_map],\
-            v[::n_map])
+    visualize_tangent_stereographic(u_map,\
+            v)
 
 
 def visualize_tangent_stereographic(u, v, c1="black"):
