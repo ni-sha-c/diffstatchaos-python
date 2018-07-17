@@ -6,20 +6,70 @@ from objective import *
 import map_sens as map_sens
 import flow_sens as flow_sens
 if __name__ == "__main__":
-#def compute_sensitivity()
-
-
     solver_ode = kode.Solver()
     solver_map = kmap.Solver()
     n_map = solver_ode.n_poincare
-    n_steps = n_map*100
-    u_ode = flow_sens.solve_primal(solver_ode,solver_ode.u_init,\
+    n_steps_map = 100
+    n_steps = n_map*n_steps_map
+    plykin = flow_sens.Sensitivity(solver_ode,n_steps)
+    u_ode = plykin.solve_primal(solver_ode,solver_ode.u_init,\
             n_steps,
             solver_ode.s0)
-    u_ode_poincare = u_ode[::n_map]
-    ode_sens = flow_sens.sensitivity_precomputation(u_ode)
-    map_sens = map_sens.sensitivity_precomputation(u_map)
-    # compare member variables of ode_sens against those of map_sens
+    plykin.precompute_sources(solver_ode,u_ode)
+    u_map = u_ode[::n_map]
+    poincare_plykin = map_sens.Sensitivity(solver_map,n_steps_map)
+    poincare_plykin.precompute_sources(solver_map,u_map)
+
+    # Comparison of pre-computations
+    
+    v0 = plykin.v0[::n_map]
+    v0_map = poincare_plykin.v0
+    w0 = plykin.w0[::n_map]
+    w0_map = poincare_plykin.w0
+    J = plykin.J[::n_map]
+    J_map = poincare_plykin.J
+    dJ = plykin.dJ[::n_map]
+    dJ_map = poincare_plykin.dJ
+    tan_src = plykin.source_tangent[::n_map]
+    tan_src_map = poincare_plykin.source_tangent
+    foradj_src = plykin.source_foradj[::n_map]
+    foradj_src_map = poincare_plykin.source_foradj
+    sens_src = plykin.source_sens[::n_map]
+    sens_src_map = poincare_plykin.source_sens
+
+    n_pad = 10 
+    n_comp = n_steps_map - 2*n_pad
+    v0 = v0[n_pad:-n_pad]
+    v0_map = v0_map[n_pad:-n_pad]
+    w0 = w0[n_pad:-n_pad]
+    w0_map = w0_map[n_pad:-n_pad]
+
+    diff_v0 = zeros(n_comp)
+    diff_w0 = zeros(n_comp)
+
+    for i in range(n_comp):
+        diff_v0[i] = min(norm(v0[i]-v0_map[i]),\
+                norm(v0[i]+v0_map[i]))
+        diff_w0[i] = min(norm(w0[i]-w0_map[i]),\
+                norm(w0[i]+w0_map[i]))
+
+
+
+
+    print('{:<70s}{:>16.10f}'.format(\
+        "l_infty norm of difference in tangent unstable direction: ",\
+        max(diff_v0)))
+
+    print('{:<70s}{:>16.10f}'.format(\
+        "l_infty norm of difference in adjoint unstable direction: ",\
+        max(diff_w0)))
+
+    
+    # Objective functions and their gradients
+    print('{:<70s}{:>16.10f}'.format(\
+        "l_infty norm of difference in tangent unstable direction: ",\
+        max(norm(J-J_map))))
+
 
 
 

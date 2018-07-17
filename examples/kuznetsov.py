@@ -10,7 +10,9 @@ spec = [
     ('state_dim', int64),
     ('param_dim', int64),
     ('n_poincare',int64),
-    ('u_init',float64[:])
+    ('u_init',float64[:]),
+    ('n_theta',int64),
+    ('n_phi',int64)
 ]
 
 @jitclass(spec)
@@ -30,6 +32,8 @@ class Solver:
                      self.boundaries[0]) + self.boundaries[0]
         self.u_init[-1] = 0.0
         self.param_dim = self.s0.size
+        self.n_theta = 20
+        self.n_phi = 20
      
 
     #@jit(nopython=True)
@@ -162,7 +166,8 @@ class Solver:
     
     #@jit(nopython=True)
     def Dobjective(self,u,s,theta0,dtheta,phi0,dphi):
-    
+
+        state_dim = self.state_dim
         res = zeros(state_dim)
         epsi = 1.e-5
         '''
@@ -230,9 +235,9 @@ class Solver:
         for l in range(state_dim):
             v0 = zeros(state_dim)
             v0[l] = 1.0
-            res[l] = (objective(u+epsi*v0,\
+            res[l] = (self.objective(u+epsi*v0,\
                     s,theta0,dtheta,phi0,dphi)- \
-                    objective(u-epsi*v0,s,theta0,dtheta,\
+                    self.objective(u-epsi*v0,s,theta0,dtheta,\
                     phi0,dphi))/(2.0*epsi)
     
     
@@ -268,9 +273,10 @@ class Solver:
         t = u[3]
         r2 = x**2 + y**2 + z**2	
         r = sqrt(r2)
+        T = self.T
         t = t%T
-        sigma = diff_rot_freq(t)
-        a = rot_freq(t)
+        sigma = self.diff_rot_freq(t)
+        a = self.rot_freq(t)
         coeff2 = s[0]*(1. - sigma*sigma - a*a)
         coeff3 = s[1]*a*a*(1.0 - r)		
         dcoeff2_ds1 = coeff2/s[0]
@@ -291,11 +297,12 @@ class Solver:
     #@jit(nopython=True)
     def DfDs(self,u,s):
         param_dim = s.size
+        state_dim = self.state_dim
         dfds = zeros((param_dim,state_dim))
         ds1 = array([1.0, 0.0])
         ds2 = array([0.0, 1.0])
-        dfds[0] = tangent_source(zeros(state_dim),u,s,ds1)
-        dfds[1] = tangent_source(zeros(state_dim),u,s,ds2)
+        dfds[0] = self.tangent_source(zeros(state_dim),u,s,ds1)
+        dfds[1] = self.tangent_source(zeros(state_dim),u,s,ds2)
         return dfds
     
     
@@ -386,11 +393,12 @@ class Solver:
         t = u[3]	
         r2 = x**2 + y**2 + z**2	
         r = sqrt(r2)
+        T = self.T
         t = t%T
-        sigma = diff_rot_freq(t)
-        a = rot_freq(t)
-        dsigma_dt = ddiff_rot_freq_dt(t)
-        da_dt = drot_freq_dt(t)
+        sigma = self.diff_rot_freq(t)
+        a = self.rot_freq(t)
+        dsigma_dt = self.ddiff_rot_freq_dt(t)
+        da_dt = self.drot_freq_dt(t)
     
         coeff1 = sigma*pi*0.5*(z*sqrt(2) + 1)
         coeff2 = s[0]*(1. - sigma*sigma - a*a)
@@ -419,7 +427,7 @@ class Solver:
         d2coeff3_dydt = s[1]*(-y)/r*2.0*a*da_dt
         d2coeff3_dzdt = s[1]*(-z)/r*2.0*a*da_dt
     
-        dgf = zeros(state_dim)
+        dgf = zeros(self.state_dim)
         dgf[0] = (dcoeff3_dx + dcoeff3_dx +
                 d2coeff3_dx2*x + coeff2*x*2.0 + 
                 d2coeff3_dxdy*y + dcoeff3_dx + 
@@ -456,9 +464,10 @@ class Solver:
         t = u[3]
         r2 = x**2 + y**2 + z**2	
         r = sqrt(r2)
+        T = self.T
         t = t%T
-        sigma = diff_rot_freq(t)
-        a = rot_freq(t)
+        sigma = self.diff_rot_freq(t)
+        a = self.rot_freq(t)
         coeff2 = s[0]*(1. - sigma*sigma - a*a)
         coeff3 = s[1]*a*a*(1.0 - r)		
         dcoeff2_ds1 = coeff2/s[0]
@@ -622,35 +631,33 @@ class Solver:
     
     #@jit(nopython=True)
     def adjoint_step(self,y1,u,s,dJ):
+        y0 = copy(y1)
+        dt = self.dt    
+        x = u[0]
+        y = u[1]
+        z = u[2]
+        t = u[3]
     
-    
-    	y0 = copy(y1)
-    
-    	x = u[0]
-    	y = u[1]
-    	z = u[2]
-    	t = u[3]
-    
-    	r2 = x**2 + y**2 + z**2
-    	r = sqrt(r2)
-    	sigma = diff_rot_freq(t)
-    	a = rot_freq(t)
-    	dsigmadt = ddiff_rot_freq_dt(t)
-    	dadt = drot_freq_dt(t)
-    	coeff1 = sigma*pi*0.5*(z*sqrt(2) + 1)
-    	coeff2 = s[0]*(1. - sigma*sigma - a*a)
-    	coeff3 = s[1]*a*a*(1.0 - r)
-    
-    	dcoeff1dt = pi*0.5*(z*sqrt(2) + 1)*dsigmadt
-    	dcoeff2dt = s[0]*(-2.0)*(sigma*dsigmadt + a*dadt)
-    	dcoeff3dt = s[1]*(1.0 - r)*2.0*a*dadt
-    
-    	dcoeff1dz = sigma*pi*0.5*sqrt(2)
-    	dcoeff3dx = s[1]*a*a*(-x)/r 
-    	dcoeff3dy = s[1]*a*a*(-y)/r
-    	dcoeff3dz = s[1]*a*a*(-z)/r 
-    
-    	y0[0] += dt * (y1[0]*(-1.0*coeff2*y*y) + 
+        r2 = x**2 + y**2 + z**2
+        r = sqrt(r2)
+        sigma = self.diff_rot_freq(t)
+        a = self.rot_freq(t)
+        dsigmadt = self.ddiff_rot_freq_dt(t)
+        dadt = self.drot_freq_dt(t)
+        coeff1 = sigma*pi*0.5*(z*sqrt(2) + 1)
+        coeff2 = s[0]*(1. - sigma*sigma - a*a)
+        coeff3 = s[1]*a*a*(1.0 - r)
+        
+        dcoeff1dt = pi*0.5*(z*sqrt(2) + 1)*dsigmadt
+        dcoeff2dt = s[0]*(-2.0)*(sigma*dsigmadt + a*dadt)
+        dcoeff3dt = s[1]*(1.0 - r)*2.0*a*dadt
+        
+        dcoeff1dz = sigma*pi*0.5*sqrt(2)
+        dcoeff3dx = s[1]*a*a*(-x)/r 
+        dcoeff3dy = s[1]*a*a*(-y)/r
+        dcoeff3dz = s[1]*a*a*(-z)/r 
+        
+        y0[0] += dt * (y1[0]*(-1.0*coeff2*y*y) + 
     			y1[0]*coeff3 + 
     			y1[0]*x*dcoeff3dx + 
     			y1[1]*coeff1 + 
@@ -659,7 +666,7 @@ class Solver:
     			y1[2]*(-0.5)*a*pi + 
     			y1[2]*z*dcoeff3dx) 	
     
-    	y0[1] += (y1[0]*dt*(-1.0)*coeff1 +
+        y0[1] += (y1[0]*dt*(-1.0)*coeff1 +
     			y1[0]*dt*(-1.0)*coeff2*x*2.0*y + 
     			y1[0]*dt*dcoeff3dy*x + 
     			y1[1]*dt*coeff2*x*x + 
@@ -668,7 +675,7 @@ class Solver:
     			y1[2]*dt*dcoeff3dy*z)
     
     	
-    	y0[2] += (y1[0]*dt*(-1.0)*dcoeff1dz*y + 
+        y0[2] += (y1[0]*dt*(-1.0)*dcoeff1dz*y + 
     			y1[0]*dt*0.5*a*pi + 
     			y1[0]*dt*dcoeff3dz*x + 
     			y1[1]*dt*dcoeff1dz*x + 
@@ -677,7 +684,7 @@ class Solver:
     			y1[2]*dt*coeff3)
     
     
-    	y0[3] += (-1.0*y1[0]*dt*dcoeff1dt*y + 
+        y0[3] += (-1.0*y1[0]*dt*dcoeff1dt*y + 
     			  -y1[0]*dt*x*y*y*dcoeff2dt + 
     			 y1[0]*dt*x*dcoeff3dt +
     			 y1[0]*dt*0.5*pi*z*dadt +  
@@ -688,8 +695,8 @@ class Solver:
     			 y1[2]*dt*(-0.5)*pi*x*dadt) 
     			 
     
-    	y0 += dJ		
-    
-    	return y0
+        y0 += dJ
+        
+        return y0
     
     

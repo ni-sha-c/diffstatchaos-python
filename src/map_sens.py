@@ -18,19 +18,35 @@ spec = [
     ('n_runup', int64),
     ('n_runup_foradj', int64),
     ('n_steps_corr',int64),
-    ('n_steps',int64)
+    ('n_steps',int64),
+    ('v0',float64[:,:]),
+    ('w0',float64[:,:]),
+    ('J',float64[:,:,:]),
+    ('dJ',float64[:,:,:,:]),
+    ('source_sens',float64[:]),
+    ('source_tangent',float64[:,:]),
+    ('source_foradj',float64[:,:])
+
 ]
 
 @jitclass(spec)
 class Sensitivity:
-    def __init__(self):
-        self.n_samples = 100000 
+    def __init__(self,solver,n_steps):
+        self.n_samples = 1000 
         self.n_runup = 1000
         self.n_runup_foradj = 10
         self.n_steps_corr = 10
-        self.n_steps = self.n_samples + \
-                self.n_steps_corr + \
-                self.n_runup_foradj
+        self.n_steps = n_steps
+        state_dim = solver.state_dim
+        n_theta = solver.n_theta
+        n_phi = solver.n_phi
+        self.v0 = zeros((n_steps,state_dim))
+        self.w0 = zeros((n_steps,state_dim)) 
+        self.J = zeros((n_steps,n_theta,n_phi))
+        self.dJ = zeros((n_steps,n_theta,n_phi,state_dim))
+        self.source_sens = zeros(n_steps)
+        self.source_tangent = zeros((n_steps,state_dim))
+        self.source_foradj = zeros((n_steps,state_dim))
 
 
 
@@ -67,7 +83,8 @@ class Sensitivity:
         dphi = 2*pi/(n_phi-1)
         theta_bin_centers = linspace(dtheta/2.0,pi-dtheta/2.0,n_theta)
         phi_bin_centers = linspace(-pi+dphi/2.0,pi-dphi/2.0,n_phi)
-        Dobjective = solver_map.Dobjective 
+        Dobjective = solver_map.Dobjective
+        state_dim = solver_map.state_dim
         DJ_theta_phi = zeros((n_steps,n_theta,n_phi,state_dim))
         for i in arange(n_steps):
             for t_ind, theta0 in enumerate(theta_bin_centers):
@@ -143,25 +160,35 @@ class Sensitivity:
         assert(v0.shape==w0.shape==source_forward_adjoint.shape==u.shape)
         
     
-    def compute_sensitivity(solver):
-    #u,s,v0,w0,J,dJ,dFds,dJds_0,source_forward_adjoint,N,n_runup_forward_adjoint
-        n_runup_forward_adjoint = 10
-        n_steps_correlation = 10
-        n_samples = 100000
-        n_runup = 100
-        n_steps = n_samples + n_runup_forward_adjoint +\
-                n_steps_correlation  
-    
+    def precompute_sources(self,solver,u):
+        n_steps = u.shape[0]
+        s0 = solver.s0
+        state_dim = solver.state_dim
+        v0_init = rand(state_dim)
+        v0_init /= norm(v0_init)
+        w0_init = rand(state_dim)
+        w0_init /= norm(w0_init)
+        n_theta = self.J.shape[1]
+        n_phi = self.J.shape[2]
+
+        self.v0 = self.solve_unstable_direction(solver, u, \
+                v0_init, n_steps, s0)
+        self.source_tangent = self.compute_source_tangent(solver,\
+                u, n_steps, s0)[:,0,:] 
+        self.w0 = self.solve_unstable_adjoint_direction(solver,\
+                u, w0_init, n_steps, s0)
+        self.J = self.compute_objective(solver,\
+                u, s0, n_steps, n_theta, n_phi)
+        self.dJ = self.compute_gradient_objective(solver,\
+                u, s0, n_steps, n_theta, n_phi)
+        self.source_foradj = \
+                self.compute_source_forward_adjoint(solver,\
+                u, n_steps, s0)
+        self.source_sens = (self.compute_source_sensitivity(solver,\
+                u, n_steps, s0))[:,0]
+
         
-        #t0 = clock()
-        u = solve_primal(u_init, n_steps, s0)
-        #t1 = clock()
-        v0 = solve_unstable_direction(u, v0_init, n_steps, s0)
-        #t2 = clock()
-        dJds_unstable = zeros((n_points_theta,n_points_phi))
-        dJds_stable = zeros((n_points_theta,n_points_phi))
-    
-    
+        
         '''
         g = zeros(n_runup_forward_adjoint)
         w_inv = zeros((n_steps,state_dim))
@@ -193,6 +220,6 @@ class Sensitivity:
                         dJds_stable[binno_t,binno_p] += \
                                 dot(dJ[n+1,binno_t,binno_p], v)/n_samples
         '''
-        return dJds_stable, dJds_unstable
+        
     
     

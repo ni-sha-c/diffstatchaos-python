@@ -47,31 +47,26 @@ def test_step_primal():
                     1./sqrt(2.),0,-1./sqrt(2.0), \
                     -1./sqrt(2.),0,-1./sqrt(2.0)]) 
     holes = holes.reshape(4,3)
-
-    flag = 1
-    u_init = rand(state_dim)
-    u_init[3] = 0.0
-    u_init = primal_step(u_init,s0,n_runup)
-    fac = 1000
-    n_steps = int(T/dt)*fac
-    u = solve_primal(u_init,n_steps,s0)
-    for i in range(1,n_steps):
-        if(dot((u[i,:3]-u[i-1,:3])/dt,u[i-1,:3])>1.e-8):
-            break
-    assert(i==n_steps-1)
-            
-    u = u[::int(T/dt)]
-    
+    solver_map = kmap.Solver()
+    u_init = solver_map.u_init
+    n_map = solver_map.n_poincare
+    n_steps = 500
+    s0 = solver_map.s0
+    sens_object = map_sens.Sensitivity()
+    solve_primal = sens_object.solve_primal
+    u = solve_primal(solver_map,\
+            u_init,n_steps,s0)
+    flag = 1        
     epsi = 1.e-1
-    for i in range(1,fac):
+    for i in range(1,n_steps):
         if(not(flag)):
             break
-        for j in range(4):
+        for j in range(holes.shape[0]):
             if(norm(u[i,:3]-holes[j])<epsi):
                 flag = 0
             if(norm(u[i,:3])>1.0 + epsi):
                 flag = 0
-    assert(i==fac-1)
+    assert(i==n_steps-1)
     
 def extrapolate(a0, a1, multiplier):
     return a0 + (a1 - a0) * multiplier
@@ -222,53 +217,51 @@ def visualize_field_density_3D(u, v):
 
 
 def test_tangent():
-
-        n_testpoints = 100
-        n_epsi = 8
-        
-        u0 = rand(n_testpoints,state_dim)
-        epsi = logspace(-n_epsi,-1.0,n_epsi)
-        vu_fd = zeros((n_epsi,n_testpoints,state_dim))
-        vs_fd = zeros((n_epsi,n_testpoints,state_dim))
-        vu_ana = zeros((n_testpoints,state_dim))
-        vs_ana = zeros((n_testpoints,state_dim))
-        u0next = zeros(state_dim)
-        v0 = rand(4)
-        ds0 = array([1.,1.])
-        for i in arange(n_testpoints):
-                u0[i] = primal_step(u0[i],s0,n_poincare)        
-                for k in arange(n_epsi):                
-                        vu_fd[k,i] = (primal_step(u0[i] + epsi[k]*v0,
-                            s0,1)-\
-                            primal_step(u0[i] - epsi[k]*v0,s0,1)\
-                            )/(2.0*epsi[k])
-
-                        vs_fd[k,i] = (primal_step(u0[i],s0 + epsi[k]*ds0,1) - 
-                            primal_step(u0[i],s0 - epsi[k]*ds0,1)) \
-                                    /(2.0*epsi[k])
-
-
+    n_testpoints = 100
+    n_epsi = 8
+    u0 = rand(n_testpoints,state_dim)
+    epsi = logspace(-n_epsi,-1.0,n_epsi)
+    vu_fd = zeros((n_epsi,n_testpoints,state_dim))
+    vs_fd = zeros((n_epsi,n_testpoints,state_dim))
+    vu_ana = zeros((n_testpoints,state_dim))
+    vs_ana = zeros((n_testpoints,state_dim))
+    u0next = zeros(state_dim)
+    v0 = rand(4)
+    ds0 = array([1.,1.])
+    for i in arange(n_testpoints):
+        u0[i] = primal_step(u0[i],s0,n_poincare)        
+        for k in arange(n_epsi):                
+                vu_fd[k,i] = (primal_step(u0[i] + epsi[k]*v0,
+                               s0,1)-\
+                               primal_step(u0[i] - epsi[k]*v0,s0,1)\
+                               )/(2.0*epsi[k])
+   
+                vs_fd[k,i] = (primal_step(u0[i],s0 + epsi[k]*ds0,1) - 
+                               primal_step(u0[i],s0 - epsi[k]*ds0,1)) \
+                                       /(2.0*epsi[k])
+   
+   
                 vu_ana[i] = tangent_step(v0,u0[i],s0,zeros(param_dim))
                 vs_ana[i] = tangent_step(zeros(state_dim),u0[i],s0,ds0)
-
+   
         erru = zeros(n_epsi)
         errs = zeros(n_epsi)
-
+   
         for k in arange(n_epsi):
-                erru[k] = norm(vu_ana-vu_fd[k])
-                errs[k] = norm(vs_ana-vs_fd[k])
+            erru[k] = norm(vu_ana-vu_fd[k])
+            errs[k] = norm(vs_ana-vs_fd[k])
+   
+    figure()
+    loglog(epsi,erru, 'o-')
+    savefig('erru')
+    figure()
+    loglog(epsi,errs, 'o-')
+    savefig('errs')
+    assert(min(erru) < 1.e-5)
+    assert(min(errs) < 1.e-5)
 
-        figure()
-        loglog(epsi,erru, 'o-')
-        savefig('erru')
-        figure()
-        loglog(epsi,errs, 'o-')
-        savefig('errs')
-        assert(min(erru) < 1.e-5)
-        assert(min(errs) < 1.e-5)
-
-
-
+   
+   
 
 def test_jacobian():
     u0 = rand(state_dim)

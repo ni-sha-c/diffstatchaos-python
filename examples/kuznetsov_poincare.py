@@ -10,7 +10,9 @@ spec = [
     ('state_dim', int64),
     ('n_poincare',int64),
     ('param_dim', int64),
-    ('u_init',float64[:])
+    ('u_init',float64[:]),
+    ('n_theta',int64),
+    ('n_phi',int64)
 ]
 @jitclass(spec)
 class Solver:
@@ -29,7 +31,8 @@ class Solver:
                      self.boundaries[0]) + self.boundaries[0]
         self.u_init[-1] = 0.0
         self.param_dim = self.s0.size
-
+        self.n_theta = 20
+        self.n_phi = 20
 
     
     def primal_step(self,u0,s,n=1):
@@ -97,7 +100,7 @@ class Solver:
     
     
     def Dobjective(self,u,s,theta0,dtheta,phi0,dphi):
-    
+        state_dim = self.state_dim    
         res = zeros(state_dim)
         epsi = 1.e-5
 
@@ -240,6 +243,7 @@ class Solver:
     
     
     def tangent_source(self,v,u,s,ds):
+        state_dim = self.state_dim
         uhalf = self.primal_halfstep(u,s,-1.,-1)
         vhalf = self.tangent_source_half(v,uhalf,s,ds,1.,1.)
         vfull = vhalf + dot(self.gradFs_halfstep(uhalf,s,1.,1.),\
@@ -378,6 +382,7 @@ class Solver:
         param_dim = self.param_dim
         state_dim = self.state_dim
         res = zeros(param_dim)
+        DFDs = self.DFDs
         for i in range(state_dim):
             uplus = copy(u)
             uminus = copy(u)
