@@ -38,7 +38,7 @@ spec = [
 class Sensitivity:
     def __init__(self,solver,n_steps):
         self.n_samples = 100000 
-        self.n_runup = 1000
+        self.n_runup = 600
         self.n_runup_foradj = 10
         self.n_steps_corr = 10
         self.n_steps = n_steps

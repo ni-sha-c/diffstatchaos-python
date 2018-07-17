@@ -46,7 +46,7 @@ class Solver:
         c2 = 4.0
         c3 = 5.0 
     
-        
+        ''' 
         if t > c0 and t < c1:
             return -1
         elif t > c2 and t < c3:
@@ -68,7 +68,7 @@ class Solver:
         fn3 = (a2*esc3 + a1*est)/(esc3 + est)
     
         return fn0 + fn1 + fn2 + fn3
-        '''
+        
 
     #@jit(nopython=True)
     def rot_freq(self,t): 
@@ -82,7 +82,7 @@ class Solver:
         c3 = 6.0
         c4 = 0.0
     
-        
+        ''' 
         if t > c0 and t < c1:
             return -1
         elif t > c2 and t < c3:
@@ -106,7 +106,7 @@ class Solver:
         fn4 = (a2*esc4 + a1*est)/(esc4 + est)
     
         return fn0 + fn1 + fn2 + fn3 + fn4
-        '''
+        
 
 
     #@jit(nopython=True)
@@ -308,78 +308,78 @@ class Solver:
     
     #@jit(nopython=True)
     def gradfs(self,u,s):
+        x = u[0]
+        y = u[1]
+        z = u[2]
+        t = u[3]	
+        r2 = x**2 + y**2 + z**2	
+        r = sqrt(r2)
+        T = self.T	
+        state_dim = self.state_dim
+        t = t%T
     
-    	x = u[0]
-    	y = u[1]
-    	z = u[2]
-    	t = u[3]	
-    	r2 = x**2 + y**2 + z**2	
-    	r = sqrt(r2)
-    	
-    	t = t%T
+        sigma = self.diff_rot_freq(t)
+        a = self.rot_freq(t)
+        dsigma_dt = self.ddiff_rot_freq_dt(t)
+        da_dt = self.drot_freq_dt(t)
     
-    	sigma = diff_rot_freq(t)
-    	a = rot_freq(t)
-    	dsigma_dt = ddiff_rot_freq_dt(t)
-    	da_dt = drot_freq_dt(t)
+        coeff1 = sigma*pi*0.5*(z*sqrt(2) + 1)
+        coeff2 = s[0]*(1. - sigma*sigma - a*a)
+        coeff3 = s[1]*a*a*(1.0 - r)		
     
-    	coeff1 = sigma*pi*0.5*(z*sqrt(2) + 1)
-    	coeff2 = s[0]*(1. - sigma*sigma - a*a)
-    	coeff3 = s[1]*a*a*(1.0 - r)		
-    
-    	dcoeff1_dt = pi*0.5*(z*sqrt(2) + 1)*dsigma_dt
-    	dcoeff2_dt = s[0]*(-2.0)*(sigma*dsigma_dt + a*da_dt)
-    	dcoeff3_dt = s[1]*(1.0 - r)*2.0*a*da_dt
+        dcoeff1_dt = pi*0.5*(z*sqrt(2) + 1)*dsigma_dt
+        dcoeff2_dt = s[0]*(-2.0)*(sigma*dsigma_dt + a*da_dt)
+        dcoeff3_dt = s[1]*(1.0 - r)*2.0*a*da_dt
     
     
-    	dcoeff1_dz = sigma*pi*0.5*sqrt(2)
-    	dcoeff2_ds1 = coeff2/s[0]
-    	dcoeff3_ds2 = coeff3/s[1]
-    	dcoeff3_dx = s[1]*a*a*(-x)/r
-    	dcoeff3_dy = s[1]*a*a*(-y)/r
-    	dcoeff3_dz = s[1]*a*a*(-z)/r
+        dcoeff1_dz = sigma*pi*0.5*sqrt(2)
+        dcoeff2_ds1 = coeff2/s[0]
+        dcoeff3_ds2 = coeff3/s[1]
+        dcoeff3_dx = s[1]*a*a*(-x)/r
+        dcoeff3_dy = s[1]*a*a*(-y)/r
+        dcoeff3_dz = s[1]*a*a*(-z)/r
     			
-    	dFdu = zeros((state_dim,state_dim))
+        dFdu = zeros((state_dim,state_dim))
     
-    	dFdu[0,0] = (-coeff2*y*y +
+        dFdu[0,0] = (-coeff2*y*y +
     				 coeff3 + dcoeff3_dx*x)
     
-    	dFdu[0,1] = (-1.0*coeff1 - 
+        dFdu[0,1] = (-1.0*coeff1 - 
     				coeff2*2.0*y*x + 
     				dcoeff3_dy*x)
     
-    	dFdu[0,2] = (-1.0*dcoeff1_dz*y + 
+        dFdu[0,2] = (-1.0*dcoeff1_dz*y + 
     				0.5*a*pi + dcoeff3_dz*x)
     
     
-    	dFdu[0,3] = (-1.0*dcoeff1_dt*y - 
+        dFdu[0,3] = (-1.0*dcoeff1_dt*y - 
     				 dcoeff2_dt*x*y*y + 
     				 0.5*pi*z*da_dt + 
     				 dcoeff3_dt*x)
     
-    	dFdu[1,0] = (coeff1*0.5 + 	
+        dFdu[1,0] = (coeff1*0.5 + 	
     				coeff2*y*2.0*x + 
     				dcoeff3_dx*y)	 
     							 
-    	dFdu[1,1] = (coeff2*x*x + 
+        dFdu[1,1] = (coeff2*x*x + 
     				coeff3 + dcoeff3_dy*y)	
     
-    	dFdu[1,2] = (dcoeff1_dz*0.5*x + 
+        dFdu[1,2] = (dcoeff1_dz*0.5*x + 
     				dcoeff3_dz*y)
     
-    	dFdu[1,3] = (dcoeff1_dt*0.5*x + 
+        dFdu[1,3] = (dcoeff1_dt*0.5*x + 
     				 dcoeff2_dt*y*x*x + 
     				 dcoeff3_dt*y)	
     
-    	dFdu[2,0] = (-0.5*a*pi + dcoeff3_dx*z)
+        dFdu[2,0] = (-0.5*a*pi + dcoeff3_dx*z)
     
-    	dFdu[2,1] = dcoeff3_dy*z
+        dFdu[2,1] = dcoeff3_dy*z
     
-    	dFdu[2,2] = coeff3 + dcoeff3_dz*z
+        dFdu[2,2] = coeff3 + dcoeff3_dz*z
     
-    	dFdu[2,3] = (-0.5*pi*x*da_dt + dcoeff3_dt*z)
+        dFdu[2,3] = (-0.5*pi*x*da_dt + dcoeff3_dt*z)
     
-    	return dFdu
+        return dFdu
     
     
    
@@ -517,41 +517,41 @@ class Solver:
     
         dcoeff2_ds1 = coeff2/s[0]
         dcoeff3_ds2 = coeff3/s[1]
-        v[0] += dt*(-1.0*dcoeff1_dz*y*dz - 1.0*
-    				coeff1*dy - dcoeff2_ds1*ds[0]*x*y*y - 
-    				coeff2*y*y*dx +
-                                    - coeff2*x*2.0*y*dy + 
-    				0.5*a*pi*dz + dcoeff3_ds2*ds[1]*x + 
-    				dcoeff3_dx*x*dx + 
-    				dcoeff3_dy*x*dy + 
-    				dcoeff3_dz*x*dz +
-    				coeff3*dx - 1.0*dcoeff1_dt*y*dtime +
-                                    - dcoeff2_dt*x*y*y*dtime + 
-    				0.5*da_dt*pi*z*dtime + 
-    				dcoeff3_dt*x*dtime)
+        v[0] += dt*(-1.0*dcoeff1_dz*y*dz - 1.0* \
+    		    coeff1*dy - dcoeff2_ds1*ds[0]*x*y*y - \
+    		    coeff2*y*y*dx + \
+                    - coeff2*x*2.0*y*dy + \
+    		    0.5*a*pi*dz + dcoeff3_ds2*ds[1]*x +\
+                    dcoeff3_dx*x*dx + \
+                    dcoeff3_dy*x*dy + \
+                    dcoeff3_dz*x*dz + \
+                    coeff3*dx - 1.0*dcoeff1_dt*y*dtime +\
+                    - dcoeff2_dt*x*y*y*dtime + \
+                    0.5*da_dt*pi*z*dtime + \
+                    dcoeff3_dt*x*dtime)
     
-        v[1] += dt*(coeff1*dx + 
-    				dcoeff1_dz*x*dz + 
-    				dcoeff2_ds1*y*x*x*ds[0] + 
-    				coeff2*dy*x*x + 
-    				coeff2*2.0*x*dx*y + 
-    				dcoeff3_ds2*ds[1]*y + 
-    				dcoeff3_dx*y*dx + 
-    				dcoeff3_dy*y*dy +
-    		 		dcoeff3_dz*y*dz +
-    			 	coeff3*dy +
-                                    dcoeff1_dt*x*dtime +
-    				dcoeff2_dt*y*x*x*dtime + 
-    				dcoeff3_dt*y*dtime) 
+        v[1] += dt*(coeff1*dx + \
+                dcoeff1_dz*x*dz + \
+    	        dcoeff2_ds1*y*x*x*ds[0] + \
+                coeff2*dy*x*x + \
+                coeff2*2.0*x*dx*y + \
+                dcoeff3_ds2*ds[1]*y + \
+                dcoeff3_dx*y*dx + \
+                dcoeff3_dy*y*dy + \
+                dcoeff3_dz*y*dz + \
+                coeff3*dy + \
+                dcoeff1_dt*x*dtime + \
+                dcoeff2_dt*y*x*x*dtime + \
+                dcoeff3_dt*y*dtime) 
     
-        v[2] += dt*(-0.5*a*pi*dx + 
-    				dcoeff3_ds2*z*ds[1] + 
-    				dcoeff3_dx*z*dx + 
-    				dcoeff3_dy*z*dy + 
-    				dcoeff3_dz*z*dz + 
-    				coeff3*dz - 
-    				0.5*pi*x*da_dt*dtime + 
-    				dcoeff3_dt*z*dtime)
+        v[2] += dt*(-0.5*a*pi*dx + \
+                dcoeff3_ds2*z*ds[1] + \
+                dcoeff3_dx*z*dx + \
+                dcoeff3_dy*z*dy +\
+                dcoeff3_dz*z*dz + \
+                coeff3*dz - \
+                0.5*pi*x*da_dt*dtime + \
+                dcoeff3_dt*z*dtime)
     	 
     
         return v

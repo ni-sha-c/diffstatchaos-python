@@ -10,17 +10,6 @@ from numpy import *
 from mpl_toolkits.mplot3d import Axes3D
 from numba import jit
 style.use('presentation')
-def visualize_primal():
-    u_init = rand(state_dim)
-    u_init[3] = 0.0
-    u_init = primal_step(u_init,s0,n_runup)
-    n_steps = int(T/dt)*1000
-    u = solve_primal(u_init,n_steps,s0)
-    u = u[::int(T/dt)]
-    stereo_real, stereo_imag = stereographic_projection(u.T)
-    figure()
-    plot(stereo_real, stereo_imag, '.', ms=1)
-    savefig('st_proj_attractor.png')
 
 def visualize_poincare_primal():
     solver_ode = kode.Solver()
@@ -28,7 +17,7 @@ def visualize_poincare_primal():
     n_map = solver_ode.n_poincare
     n_steps = 500*n_map
     s0 = solver_ode.s0
-    sens_object = flow_sens.Sensitivity()
+    sens_object = flow_sens.Sensitivity(solver_ode,n_steps)
     solve_primal = sens_object.solve_primal
     u_ode = solve_primal(solver_ode,\
             u_init,n_steps,s0)
@@ -40,34 +29,25 @@ def visualize_poincare_primal():
     savefig('st_proj_poincare_attractor.png')
 
 
-@jit(nopython=True)
-#if __name__ == "__main__":
-def test_poincare_primal():
-    u_init = rand(state_dim)
-    u_init = poincare_step(u_init,s0,n_runup)
-    u_init[-1] = 0.
-    n_steps = 1000
-    u = solve_poincare_primal(u_init,n_steps,s0)
-    u_ode = solve_primal(u_init,n_steps*int(T/dt),s0)
-    print(norm(u_ode[::int(T/dt)]-u))
-
-
-@jit(nopython=True)
-#if __name__ == "__main__":
 def test_step_primal():
     holes = array([1./sqrt(2.),0,1./sqrt(2.0),\
                    -1./sqrt(2.),0,1./sqrt(2.0), \
                     1./sqrt(2.),0,-1./sqrt(2.0), \
                     -1./sqrt(2.),0,-1./sqrt(2.0)]) 
     holes = holes.reshape(4,3)
-
+    solver_ode = kode.Solver()
     flag = 1
-    u_init = rand(state_dim)
-    u_init[3] = 0.0
-    u_init = primal_step(u_init,s0,n_runup)
-    fac = 1000
-    n_steps = int(T/dt)*fac
-    u = solve_primal(u_init,n_steps,s0)
+    u_init = solver_ode.u_init
+    T = solver_ode.T
+    dt = solver_ode.dt
+    fac = 100
+    n_steps = fac*int(T/dt)
+    s0 = solver_ode.s0
+    primal_step = solver_ode.primal_step
+    sens_object = flow_sens.Sensitivity(solver_ode,n_steps)
+    u_init = primal_step(u_init,s0,sens_object.n_runup)
+    solve_primal = sens_object.solve_primal
+    u = solve_primal(solver_ode,u_init,n_steps,s0)
     for i in range(1,n_steps):
         if(dot((u[i,:3]-u[i-1,:3])/dt,u[i-1,:3])>1.e-8):
             break
@@ -79,7 +59,7 @@ def test_step_primal():
     for i in range(1,fac):
         if(not(flag)):
             break
-        for j in range(4):
+        for j in range(holes.shape[0]):
             if(norm(u[i,:3]-holes[j])<epsi):
                 flag = 0
             if(norm(u[i,:3])>1.0 + epsi):
@@ -92,17 +72,19 @@ def extrapolate(a0, a1, multiplier):
 def visualize_unstable_direction():
     solver_ode = kode.Solver()
     u_init = solver_ode.u_init
+    v_init = rand(u_init.size)
+    v_init /= norm(v_init)
     n_map = solver_ode.n_poincare
-    n_steps = 1000*n_map
+    n_steps = 500*n_map
     s0 = solver_ode.s0
-    sens_object = flow_sens.Sensitivity()
+    sens_object = flow_sens.Sensitivity(solver_ode,n_steps)
     solve_primal = sens_object.solve_primal
     u_ode = solve_primal(solver_ode,\
             u_init,n_steps,s0)
     solve_unstable_direction = sens_object.\
             solve_unstable_direction
     v = solve_unstable_direction(solver_ode,\
-        u_ode, rand(solver_ode.state_dim),n_steps,\
+        u_ode, v_init,n_steps,\
         s0)
     visualize_tangent_2D(u_ode[::n_map],\
             v[::n_map])
@@ -236,33 +218,39 @@ def visualize_field_density_3D(u, v):
 
 def test_tangent():
 
-        n_testpoints = 100
+        n_testpoints = 1
         n_epsi = 8
-        
+        solver = kode.Solver()
+        s0 = solver.s0
+        state_dim = solver.state_dim 
+        param_dim = s0.size
+        n_poincare = solver.n_poincare
         u0 = rand(n_testpoints,state_dim)
         epsi = logspace(-n_epsi,-1.0,n_epsi)
         vu_fd = zeros((n_epsi,n_testpoints,state_dim))
         vs_fd = zeros((n_epsi,n_testpoints,state_dim))
         vu_ana = zeros((n_testpoints,state_dim))
         vs_ana = zeros((n_testpoints,state_dim))
-        u0next = zeros(state_dim)
-        v0 = rand(4)
+        v0 = rand(state_dim)
         ds0 = array([1.,1.])
+        primal_step = solver.primal_step
+        tangent_step = solver.tangent_step
         for i in arange(n_testpoints):
-                u0[i] = primal_step(u0[i],s0,n_poincare)        
-                for k in arange(n_epsi):                
-                        vu_fd[k,i] = (primal_step(u0[i] + epsi[k]*v0,
+            u0[i] = primal_step(solver.u_init,s0,int(200*\
+                    rand()))        
+            for k in arange(n_epsi):                
+                vu_fd[k,i] = (primal_step(u0[i] + epsi[k]*v0,
                             s0,1)-\
                             primal_step(u0[i] - epsi[k]*v0,s0,1)\
-                            )/(2.0*epsi[k])
+                            )/(2.0*epsi[k]) 
 
-                        vs_fd[k,i] = (primal_step(u0[i],s0 + epsi[k]*ds0,1) - 
+                vs_fd[k,i] = (primal_step(u0[i],s0 + epsi[k]*ds0,1) - 
                             primal_step(u0[i],s0 - epsi[k]*ds0,1)) \
-                                    /(2.0*epsi[k])
+                                    /(2.0*epsi[k]) 
 
-
-                vu_ana[i] = tangent_step(v0,u0[i],s0,zeros(param_dim))
-                vs_ana[i] = tangent_step(zeros(state_dim),u0[i],s0,ds0)
+            #vu_ana[i] = solver.dt*dot(solver.gradfs(u0[i],s0),v0) 
+            vu_ana[i] = tangent_step(v0,u0[i],s0,zeros(param_dim))
+            vs_ana[i] = tangent_step(zeros(state_dim),u0[i],s0,ds0)
 
         erru = zeros(n_epsi)
         errs = zeros(n_epsi)
@@ -284,9 +272,17 @@ def test_tangent():
 
 
 def test_jacobian():
+    solver = kode.Solver()
+    state_dim = solver.state_dim
+    T = solver.T
+    dt = solver.dt
+    primal_step = solver.primal_step
+    tangent_step = solver.tangent_step
+    gradfs = solver.gradfs
+    s0 = solver.s0
     u0 = rand(state_dim)
     u0[3] *= T
-    epsi = 1.e-8
+    epsi = 1.e-4
     Jacu = zeros((state_dim,state_dim))
     Jacu[:,0] = ((primal_step(u0 + epsi*array([1.0,0.0,0.0,0.0]),s0,1) - 
                             primal_step(u0 - epsi*array([1.0,0.0,0.0,0.0]),s0,1))/
@@ -312,89 +308,34 @@ def test_jacobian():
                     - epsi*array([0.0,1.0]),1))/(2.0*epsi)        
 
     Jacana = dt*gradfs(u0,s0) + eye(state_dim,state_dim)
-    print(norm(Jacu-Jacana))
-    print(Jacu)
+    assert(norm(Jacu-Jacana) < 1.e-5)
         
     v0 = rand(4)
     v0_fd = dot(Jacu,v0) 
-    print(v0_fd)
     v0_hand = tangent_step(v0,u0,s0,zeros(2))
-    print(norm(v0_fd - v0_hand))
+    assert(norm(v0_fd - v0_hand) < 1.e-6)
 
 
     v1_fd = v0_fd + dFds1 
     v1_hand = tangent_step(v0,u0,s0,[1.0,0.0])
-    print(norm(v1_fd - v1_hand))
+    assert(norm(v1_fd - v1_hand) < 1.e-6)
 
     v2_fd = v0_fd + dFds2 
     v2_hand = tangent_step(v0,u0,s0,[0.0,1.0])
-    print(norm(v2_fd - v2_hand))
+    assert(norm(v2_fd - v2_hand) < 1.e-6)
 
-
-#if __name__ == "__main__":
-def test_poincare_halfstep_Jacobian():
-    n_test = 100
-    state_dim = 4
-    u = rand(n_test,state_dim)
-    u[:,3] = 0.0
-    n_epsi = 10
-    epsi = logspace(-n_epsi,-1.0,n_epsi)
-    dFdu_fd = zeros((n_epsi,n_test,state_dim,state_dim))
-    dFdu = zeros((n_test,state_dim,state_dim))
-    for i in range(n_test):
-        dFdu[i] = gradFs_poincare_halfstep(u[i],s0,-1,-1)
-        for j in range(n_epsi):
-            for k in range(state_dim):
-                v = zeros(state_dim)
-                v[k] = 1.0
-                dFdu_fd[j,i,:,k] = (poincare_half_step(u[i] + epsi[j]*v,s0,-1,-1) \
-                        - poincare_half_step(u[i] - epsi[j]*v,s0,-1,-1))/(2*epsi[j])
-                
-    err_poincare_jacobian = zeros(n_epsi)
-    for j in range(n_epsi):
-        err_poincare_jacobian[j] = norm(dFdu_fd[j]-dFdu)
-    figure()
-    loglog(epsi,err_poincare_jacobian)
-    xlabel(r"$\epsilon$")
-    ylabel("Error in Jacobian of Poincare half step")
-    savefig("errJacobianHalfPoincare")
-    assert(min(err_poincare_jacobian) < 1.e-8)
-
-
-#if __name__ == "__main__":
-def test_poincare_Jacobian():
-    n_test = 100
-    state_dim = 4
-    u = rand(n_test,state_dim)
-    u[:,3] = 0.0
-    n_epsi = 10
-    epsi = logspace(-n_epsi,-1.0,n_epsi)
-    dFdu_fd = zeros((n_epsi,n_test,state_dim,state_dim))
-    dFdu = zeros((n_test,state_dim,state_dim))
-    for i in range(n_test):
-        dFdu[i] = gradFs_poincare(u[i],s0)
-        for j in range(n_epsi):
-            for k in range(state_dim):
-                v = zeros(state_dim)
-                v[k] = 1.0
-                dFdu_fd[j,i,:,k] = (poincare_step(u[i] + epsi[j]*v,s0) \
-                        - poincare_step(u[i] - epsi[j]*v,s0))/(2*epsi[j])
-                
-    err_poincare_jacobian = zeros(n_epsi)
-    for j in range(n_epsi):
-        err_poincare_jacobian[j] = norm(dFdu_fd[j]-dFdu)
-    figure()
-    loglog(epsi,err_poincare_jacobian)
-    xlabel(r"$\epsilon$")
-    ylabel("Error in Jacobian of Poincare step")
-    savefig("errJacobianPoincare")
-    assert(min(err_poincare_jacobian) < 1.e-8)
 
         
 
 def test_DfDs():
-    u0 = rand(4)
-    u0[3] *= T
+    solver = kode.Solver()
+    state_dim = solver.state_dim
+    param_dim = solver.param_dim
+    u0 = solver.u_init
+    dt = solver.dt
+    primal_step = solver.primal_step
+    DfDs = solver.DfDs
+    s0 = solver.s0
     n_epsi = 10
     param_dim = s0.size
     epsi = logspace(-n_epsi,-1.0,n_epsi)
@@ -407,8 +348,8 @@ def test_DfDs():
             sminus = copy(s0)
             sminus[i] -= epsi[k]
 
-            dfds_fd[k,i] = (primal_step(u0,splus) - 
-                            primal_step(u0,sminus))/(2.0*epsi[k])/dt
+            dfds_fd[k,i] = (primal_step(u0,splus,1) - 
+                            primal_step(u0,sminus,1))/(2.0*epsi[k])/dt
     err_dfds = zeros(n_epsi)
     dfds_ana = DfDs(u0,s0)
     for k in range(n_epsi):
@@ -416,34 +357,6 @@ def test_DfDs():
     figure()
     loglog(epsi,err_dfds, 'o-')
     savefig('err_dfds')
-
-    assert(min(err_dfds) < 1.e-8)
-
-#if __name__ == "__main__":
-def test_poincare_DFDs():
-    u0 = rand(4)
-    u0[3] *= 0.
-    n_epsi = 10
-    param_dim = s0.size
-    epsi = logspace(-n_epsi,-1.0,n_epsi)
-    dfds_fd = zeros((n_epsi,param_dim,state_dim))
-    dfds_ana = zeros((param_dim,state_dim))
-    for i in range(param_dim):
-        for k in range(n_epsi):
-            splus = copy(s0)
-            splus[i] += epsi[k]
-            sminus = copy(s0)
-            sminus[i] -= epsi[k]
-
-            dfds_fd[k,i] = (poincare_step(u0,splus) - 
-                            poincare_step(u0,sminus))/(2.0*epsi[k])
-    err_dfds = zeros(n_epsi)
-    dfds_ana = DFDs_poincare(u0,s0)
-    for k in range(n_epsi):
-        err_dfds[k] = norm(dfds_fd[k]-dfds_ana)
-    figure()
-    loglog(epsi,err_dfds, 'o-')
-    savefig('err_dfds_poincare')
 
     assert(min(err_dfds) < 1.e-8)
 
@@ -455,13 +368,19 @@ def test_divGradfs():
     n_samples = 100
     n_epsi = 10
     epsi = logspace(-n_epsi,-1,n_epsi)
-    u0 = rand(n_samples,state_dim)
-    u0 *= (boundaries[1]-boundaries[0])
-    u0 += boundaries[0]
+    solver = kode.Solver()
+    state_dim = solver.state_dim
+    s0 = solver.s0
+    gradfs = solver.gradfs
+    primal_step = solver.primal_step
+    divGradfs = solver.divGradfs
+    u0 = zeros((n_samples,state_dim))
     dgf_hand = zeros((n_samples,state_dim))
     dgf_fd = zeros((n_epsi,n_samples,state_dim))
     tmp_matrix = zeros((state_dim,state_dim))
     for i in range(n_samples):
+        u0[i] = primal_step(solver.u_init,\
+                s0,int(10*n_samples*rand()))
         dgf_hand[i] = divGradfs(u0[i],s0) 
         for k in range(n_epsi):
             for j in range(state_dim):
@@ -485,45 +404,53 @@ def test_divGradfs():
 
 def test_adjoint():
 
-        u0 = rand(4)
-        u0[3] *= T
-        u1 = primal_step(u0,s0,1)
-        epsi = 1.e-8
+    solver = kode.Solver()
+    primal_step = solver.primal_step
+    adjoint_step = solver.adjoint_step
+    s0 = solver.s0
+    state_dim = solver.state_dim
+    u0 = primal_step(solver.u_init,s0,100)
+    epsi = 1.e-4
 
-        y1 = [0.0,1.,0.,0.]
-        y0_ana = adjoint_step(y1,u0,s0,y1)
+    y1 = array([0.0,1.,0.,0.])
+    y0_ana = adjoint_step(y1,u0,s0,y1)
 
-        y0_fd = zeros(state_dim)
+    y0_fd = zeros(state_dim)
+    v0 = zeros(state_dim)
+    for i in arange(state_dim):
         v0 = zeros(state_dim)
-        for i in arange(state_dim):
-                v0 = zeros(state_dim)
-                v0[i] = 1.0
-                u0pert = u0 + epsi*v0
-                u1pert =  primal_step(u0pert,s0,1)
-                obj2 = u0pert[1] + u1pert[1]
+        v0[i] = 1.0
+        u0pert = u0 + epsi*v0
+        u1pert =  primal_step(u0pert,s0,1)
+        obj2 = u0pert[1] + u1pert[1]
 
-                u0pert = u0 - epsi*v0
-                u1pert =  primal_step(u0pert,s0,1)
-                obj1 = u0pert[1] + u1pert[1]
+        u0pert = u0 - epsi*v0
+        u1pert =  primal_step(u0pert,s0,1)
+        obj1 = u0pert[1] + u1pert[1]
 
-                y0_fd[i] = (obj2 - obj1)/(2.0*epsi) 
-        print(norm(y0_fd-y0_ana))
+        y0_fd[i] = (obj2 - obj1)/(2.0*epsi) 
+    assert(norm(y0_fd-y0_ana) < 1.e-8)
 
 
 
 def test_tangentadjoint():
-        u = rand(4)
-        u[3] *= T
+    solver = kode.Solver()
+    tangent_step = solver.tangent_step
+    adjoint_step = solver.adjoint_step
+    state_dim = solver.state_dim
+    param_dim = solver.param_dim
+    s0 = solver.s0
+    T = solver.T
+    u = solver.primal_step(solver.u_init,\
+            s0,int(3000*rand()))
 
-        y1 = rand(4)
-        v0 = rand(4)
-        v1 = tangent_step(v0,u,s0,zeros(2))
-        y0 = adjoint_step(y1,u,s0,zeros(4))
-        print(u[3])
-        print(dot(v1,y1))
-        print(dot(v0,y0))
+    y1 = rand(state_dim)
+    v0 = rand(state_dim)
+    v1 = tangent_step(v0,u,s0,zeros(param_dim))
+    y0 = adjoint_step(y1,u,s0,zeros(state_dim))
+    assert(abs(dot(v1,y1)-dot(v0,y0)) < 1.e-10)
 
-
+'''
 def test_objective():
 #if __name__=="__main__":
     nsamples = 10000
@@ -618,4 +545,4 @@ def test_gradient_objective():
     assert(min(err_dJdu) < 1.e-6)
 
 
-
+'''
