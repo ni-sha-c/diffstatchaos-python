@@ -97,7 +97,7 @@ class Sensitivity:
         for i in arange(n_steps):
             for t_ind, theta0 in enumerate(theta_bin_centers):
                 for p_ind, phi0 in enumerate(phi_bin_centers):
-                    DJ_theta_phi[i,t_ind,p_ind] += Dobjective(u[i],
+                    DJ_theta_phi[i,t_ind,p_ind] = Dobjective(u[i],
                             s0,theta0,dtheta,phi0,dphi)
         return DJ_theta_phi 
     
@@ -243,6 +243,43 @@ class Sensitivity:
         return dJds_s
 
 
+    def compute_timeseries_unstable_sensitivity(self,solver):
+        g = zeros((self.n_steps))
+        winv = self.winv
+        dfds_ust = self.unstable_source_tangent
+        for i in range(self.n_steps-1):
+            g[i] = dot(winv[i+1],dfds_ust[i]) - \
+                    self.source_sens[i]
+        return g
+        
+
+    def compute_correlation_sum(self,g,f,n_ignore):
+        n_corr_max = self.n_steps_corr
+        n_total = g.shape[0]
+        g_mean = 0.0
+        fg_corr_sum = 0.0
+        for i in range(n_ignore + n_corr_max,n_total):
+            g_mean += sum(g[i-n_corr_max:i])
+            fg_corr_sum += f[i]*\
+                    (sum(g[i-n_corr_max:i])-g_mean/(i-n_ignore-
+                        n_corr_max))/\
+                    self.n_samples
+        return fg_corr_sum
+
+
+    def compute_unstable_sensitivity(self,solver):
+        n_theta = solver.n_theta
+        n_phi = solver.n_phi
+        g = self.compute_timeseries_unstable_sensitivity(\
+                solver)
+        n_ignore = self.n_runup_foradj
+        dJds_us = zeros((n_theta,n_phi))
+        for bin_t in range(n_theta):
+            for bin_p in range(n_phi):
+                dJds_us[bin_t,bin_p] += \
+                        self.compute_correlation_sum(g,\
+                        self.J[:,bin_t,bin_p],n_ignore)
+        return dJds_us
 
 
 
