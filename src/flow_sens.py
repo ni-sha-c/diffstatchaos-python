@@ -29,6 +29,8 @@ spec = [
     ('dJ',float64[:,:,:,:]),
     ('source_sens',float64[:]),
     ('source_tangent',float64[:,:]),
+    ('unstable_source_tangent',float64[:,:]),
+    ('stable_source_tangent',float64[:,:]),
     ('source_foradj',float64[:,:])
 
 

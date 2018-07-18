@@ -262,7 +262,7 @@ class Sensitivity:
             g_mean += sum(g[i-n_corr_max:i])
             fg_corr_sum += f[i]*\
                     (sum(g[i-n_corr_max:i])-g_mean/(i-n_ignore-
-                        n_corr_max))/\
+                        n_corr_max + 1))/\
                     self.n_samples
         return fg_corr_sum
 
