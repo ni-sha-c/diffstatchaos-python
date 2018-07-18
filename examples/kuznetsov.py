@@ -19,7 +19,7 @@ spec = [
 class Solver:
 
     def __init__(self):
-        self.dt = 2.e-3
+        self.dt = 1.e-2
         self.s0 = array([1.0,1.0])
         self.T = 6.0
         self.state_dim = 4

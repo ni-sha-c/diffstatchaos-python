@@ -239,7 +239,7 @@ class Sensitivity:
                 for bin_t in range(n_theta):
                     for bin_p in range(n_phi):
                         dJds_s[bin_t,bin_p] += dot(v,self.dJ[i+1,\
-                            bin_t,bin_p])/n_samples
+                            bin_t,bin_p])/n_samples/solver.n_poincare
         return dJds_s
 
 

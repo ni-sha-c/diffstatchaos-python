@@ -25,6 +25,7 @@ spec = [
     ('n_steps',int64),
     ('v0',float64[:,:]),
     ('w0',float64[:,:]),
+    ('winv',float64[:,:]),
     ('J',float64[:,:,:]),
     ('dJ',float64[:,:,:,:]),
     ('source_sens',float64[:]),
@@ -105,7 +106,7 @@ class Sensitivity:
         return dgf
     
     
-    #@jit(nopython=True)
+   
     def compute_source_sensitivity(self, solver_ode, u, n_steps, s0):
         param_dim = s0.size
         ddfds = zeros((n_steps,param_dim))
@@ -113,6 +114,19 @@ class Sensitivity:
             ddfds[i] = solver_ode.divDfDs(u[i],s0)
         return ddfds
     
+    def solve_forward_adjoint(self, solver,\
+            u, n_steps, s0, source_foradj, v0):
+        state_dim = solver.state_dim
+        w_inv = zeros((n_steps,state_dim))
+        adjoint_step = solver.adjoint_step
+        for i in range(n_steps - 1):
+            w_inv[i+1] = adjoint_step(w_inv[i+1],u[i],\
+                    s0, zeros(state_dim))\
+                    - source_foradj[i]*solver.dt
+            w_inv[i+1] = dot(w_inv[i+1], v0[i+1])*\
+                    v0[i+1]
+        return w_inv
+
     
     #@jit(nopython=True)
     def compute_objective(self, solver_ode, u, s0, n_steps,\
@@ -158,7 +172,7 @@ class Sensitivity:
         return DJ_theta_phi 
     
         
-    #@jit(nopython=True)
+    
     def compute_correlation_Jg(self,cumsum_J, \
             ddfds,n_samples):
         temp_array = zeros(cumsum_J.shape)
@@ -167,7 +181,20 @@ class Sensitivity:
         return temp_array[:n_samples].sum(0)
     
     
-    #@jit(nopython=True)
+    def compute_decomposed_source_tangent(self, source_tangent,\
+            v0, w0):
+        n_steps = source_tangent.shape[0]
+        state_dim = v0.shape[1]
+        uns_src_tan = zeros((n_steps,state_dim))
+        s_src_tan = zeros((n_steps,state_dim))
+        for i in range(n_steps-1):
+            s_src_tan[i], uns_src_tan[i] =\
+                    decompose_tangent(source_tangent[i],\
+                    v0[i+1], w0[i+1])
+        return s_src_tan, uns_src_tan
+
+    
+   
     def precompute_sources(self,solver,u):
         n_steps = u.shape[0]
         state_dim = solver.state_dim
@@ -193,10 +220,80 @@ class Sensitivity:
                 u, n_steps, s0)
         self.source_sens = (self.compute_source_sensitivity(solver,\
                 u, n_steps, s0))[:,0]
+        self.winv = self.solve_forward_adjoint(solver,\
+                u, n_steps, s0, self.source_foradj, self.v0)
+        self.stable_source_tangent, self.unstable_source_tangent = \
+                self.compute_decomposed_source_tangent(\
+                self.source_tangent, self.v0, self.w0)
+
        
-       
-             
-    
+    def compute_stable_sensitivity(self,solver,u):
+        state_dim = solver.state_dim
+        n_theta = solver.n_theta
+        n_phi = solver.n_phi
+        n_samples = self.n_samples
+        n_steps = u.shape[0]
+        dfds_st = self.stable_source_tangent
+        v = zeros(state_dim)
+        dt = solver.dt
+        tangent_step = solver.tangent_step
+        s0 = solver.s0
+        ds0 = zeros(solver.param_dim)
+        dJds_s = zeros((n_theta,n_phi))
+        for i in range(n_steps-1):
+            v = tangent_step(v,u[i],s0,ds0)
+            v += dt*dfds_st[i]
+            v = v - dot(v,self.w0[i+1])*self.w0[i+1]
+            if(i >= self.n_runup_foradj + self.n_steps_corr) and \
+                    (i % solver.n_poincare == 0):
+                for bin_t in range(n_theta):
+                    for bin_p in range(n_phi):
+                        dJds_s[bin_t,bin_p] += dot(v,self.dJ[i+1,\
+                            bin_t,bin_p])/n_samples
+        return dJds_s
+
+    def compute_timeseries_unstable_sensitivity(self,solver):
+        g = zeros((self.n_steps))
+        winv = self.winv
+        dfds_ust = self.unstable_source_tangent
+        for i in range(self.n_steps-1):
+            g[i] = dot(winv[i+1],dfds_ust[i]) + \
+                    self.source_sens[i]
+        return g
+
+
+    def compute_correlation_sum(self,g,f,n_ignore):
+        n_corr_max = self.n_steps_corr
+        n_total = g.shape[0]
+        g_mean = 0.0
+        fg_corr_sum = 0.0
+        for i in range(n_ignore + n_corr_max,n_total):
+            g_mean += sum(g[i-n_corr_max:i])
+            fg_corr_sum += f[i]*\
+                    (sum(g[i-n_corr_max:i])-g_mean/(i-n_ignore-
+                        n_corr_max + 1))/\
+                    self.n_samples
+        return fg_corr_sum
+
+
+    def compute_unstable_sensitivity(self,solver):
+        n_theta = solver.n_theta
+        n_phi = solver.n_phi
+        g = self.compute_timeseries_unstable_sensitivity(\
+                solver)
+        n_ignore = self.n_runup_foradj
+        dJds_us = zeros((n_theta,n_phi))
+        n_poincare = solver.n_poincare
+        J = self.J[::n_poincare]
+        g = g[::n_poincare]
+        for bin_t in range(n_theta):
+            for bin_p in range(n_phi):
+                dJds_us[bin_t,bin_p] += \
+                        self.compute_correlation_sum(g,\
+                        J[:,bin_t,bin_p],n_ignore)
+        return dJds_us
+
+
     
     if __name__ == '__main__':
         n_points_theta = 20
