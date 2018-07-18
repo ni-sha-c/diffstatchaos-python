@@ -5,20 +5,39 @@ import kuznetsov as kode
 from objective import *
 import map_sens as map_sens
 import flow_sens as flow_sens
+from time import clock
 if __name__ == "__main__":
     solver_ode = kode.Solver()
     solver_map = kmap.Solver()
     n_map = solver_ode.n_poincare
-    n_steps_map = 100
+    n_steps_map = 500
     n_steps = n_map*n_steps_map
     plykin = flow_sens.Sensitivity(solver_ode,n_steps)
+    t0 = clock()
     u_ode = plykin.solve_primal(solver_ode,solver_ode.u_init,\
             n_steps,
             solver_ode.s0)
+    t1 = clock()
+    print('{:<60s}{:>16.10f}'.format(\
+            "Time to solve primal: ",\
+        t1-t0))
+
+    t2 = clock()
     plykin.precompute_sources(solver_ode,u_ode)
+    t3 = clock()
+    print('{:<60s}{:>16.10f}'.format(\
+            "Time for flow precomputations: ",\
+        t3-t2))
+
     u_map = u_ode[::n_map]
+   
     poincare_plykin = map_sens.Sensitivity(solver_map,n_steps_map)
+    t4 = clock() 
     poincare_plykin.precompute_sources(solver_map,u_map)
+    t5 = clock()
+    print('{:<60s}{:>16.10f}'.format(\
+            "Time for map precomputations: ",\
+        t5-t4))
 
     # Comparison of pre-computations
     
@@ -39,9 +58,9 @@ if __name__ == "__main__":
 
     n_pad = 10 
     n_comp = n_steps_map - 2*n_pad
-    v0 = v0[n_pad:]
+    v0 = v0[n_pad:-n_pad]
     v0_map = v0_map[n_pad:-n_pad]
-    w0 = w0[:-n_pad]
+    w0 = w0[n_pad:-n_pad]
     w0_map = w0_map[n_pad:-n_pad]
     tan_src = tan_src[n_pad:-n_pad]
     tan_src_map = tan_src_map[n_pad:-n_pad]
@@ -77,9 +96,17 @@ if __name__ == "__main__":
         "l_infty norm of difference in adjoint unstable direction: ",\
         max(diff_w0)))
     
-
-
-
+    
+    dJds_stable = poincare_plykin.compute_stable_sensitivity(solver_map,u_map)
+    dtheta = pi/(solver_map.n_theta -1)
+    dphi = 2*pi/(solver_map.n_phi -1)
+    theta_bin_centers = linspace(dtheta/2.0,pi - dtheta/2.0, \
+            solver_map.n_theta)
+    phi_bin_centers = linspace(-pi-dphi/2.0,pi - dphi/2.0,\
+            solver_map.n_phi)
+    contourf(phi_bin_centers,theta_bin_centers\
+            ,dJds_stable,100)
+    
     '''    
     u = zeros((n_steps,state_dim))
     random.seed(0)

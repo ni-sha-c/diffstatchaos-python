@@ -21,31 +21,39 @@ spec = [
     ('n_steps',int64),
     ('v0',float64[:,:]),
     ('w0',float64[:,:]),
+    ('winv',float64[:,:]),
     ('J',float64[:,:,:]),
     ('dJ',float64[:,:,:,:]),
     ('source_sens',float64[:]),
     ('source_tangent',float64[:,:]),
+    ('unstable_source_tangent',float64[:,:]),
+    ('stable_source_tangent',float64[:,:]),
     ('source_foradj',float64[:,:])
 
 ]
 
 @jitclass(spec)
 class Sensitivity:
-    def __init__(self,solver,n_steps):
-        self.n_samples = 1000 
+    def __init__(self,solver,n_steps): 
         self.n_runup = 1000
         self.n_runup_foradj = 10
         self.n_steps_corr = 10
         self.n_steps = n_steps
+        self.n_samples = self.n_steps - \
+                self.n_steps_corr - \
+                self.n_runup_foradj - 1
         state_dim = solver.state_dim
         n_theta = solver.n_theta
         n_phi = solver.n_phi
         self.v0 = zeros((n_steps,state_dim))
-        self.w0 = zeros((n_steps,state_dim)) 
+        self.w0 = zeros((n_steps,state_dim))
+        self.winv = zeros((n_steps,state_dim)) 
         self.J = zeros((n_steps,n_theta,n_phi))
         self.dJ = zeros((n_steps,n_theta,n_phi,state_dim))
         self.source_sens = zeros(n_steps)
         self.source_tangent = zeros((n_steps,state_dim))
+        self.unstable_source_tangent = zeros((n_steps,state_dim))
+        self.stable_source_tangent = zeros((n_steps,state_dim))
         self.source_foradj = zeros((n_steps,state_dim))
 
 
@@ -154,9 +162,8 @@ class Sensitivity:
         return t_ddFds_dFinv
     
     
-    def compute_forward_adjoint(self, solver_map,\
-            u, v0, source_foradj):
-        n_steps = u.shape[0]
+    def solve_forward_adjoint(self, solver_map,\
+            u, n_steps, s0, source_foradj, v0):
         state_dim = solver_map.state_dim
         w_inv = zeros((n_steps,state_dim))
         for i in range(n_steps - 1):
@@ -166,8 +173,22 @@ class Sensitivity:
                     linalg.solve(nablaFs.T, w_inv[i])
             w_inv[i+1] = dot(w_inv[i+1], v0[i+1])*\
                     v0[i+1]
+        return w_inv
 
-        
+
+    def compute_decomposed_source_tangent(self, source_tangent,\
+            v0, w0):
+        n_steps = source_tangent.shape[0]
+        state_dim = v0.shape[1]
+        uns_src_tan = zeros((n_steps,state_dim))
+        s_src_tan = zeros((n_steps,state_dim))
+        for i in range(n_steps-1):
+            s_src_tan[i], uns_src_tan[i] =\
+                    decompose_tangent(source_tangent[i],\
+                    v0[i+1], w0[i+1])
+        return s_src_tan, uns_src_tan
+            
+
     
     def precompute_sources(self,solver,u):
         n_steps = u.shape[0]
@@ -195,10 +216,40 @@ class Sensitivity:
                 u, n_steps, s0)
         self.source_sens = (self.compute_source_sensitivity(solver,\
                 u, n_steps, s0))[:,0]
+        self.winv = self.solve_forward_adjoint(solver,\
+                u, n_steps, s0, self.source_foradj, self.v0)
+        self.stable_source_tangent, self.unstable_source_tangent = \
+                self.compute_decomposed_source_tangent(\
+                self.source_tangent, self.v0, self.w0)
+     
+    def compute_stable_sensitivity(self,solver,u):
+        state_dim = solver.state_dim
+        n_theta = solver.n_theta
+        n_phi = solver.n_phi
+        n_samples = self.n_samples
+        n_steps = u.shape[0]
+        dfds_st = self.stable_source_tangent
+        v = zeros(state_dim)
+        dJds_s = zeros((n_theta,n_phi))
+        for i in range(n_steps-1):
+            v = dot(solver.gradFs(u[i],solver.s0),v)
+            v += dfds_st[i]
+            v = v - dot(v,self.w0[i+1])*self.w0[i+1]
+            if(i >= self.n_runup_foradj + self.n_steps_corr):
+                for bin_t in range(n_theta):
+                    for bin_p in range(n_phi):
+                        dJds_s[bin_t,bin_p] += dot(v,self.dJ[i+1,\
+                            bin_t,bin_p])/n_samples
+        return dJds_s
+
+
+
+
+
 
         
         
-        '''
+    '''
         g = zeros(n_runup_forward_adjoint)
         w_inv = zeros((n_steps,state_dim))
         v = zeros(state_dim)
@@ -228,7 +279,7 @@ class Sensitivity:
                                 (sum(g)-gsum_mean/n)/n_samples
                         dJds_stable[binno_t,binno_p] += \
                                 dot(dJ[n+1,binno_t,binno_p], v)/n_samples
-        '''
+    '''
         
     
     
