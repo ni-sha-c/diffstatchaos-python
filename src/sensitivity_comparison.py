@@ -10,7 +10,7 @@ if __name__ == "__main__":
     solver_ode = kode.Solver()
     solver_map = kmap.Solver()
     n_map = solver_ode.n_poincare
-    n_steps_map = 500
+    n_steps_map = 50
     n_steps = n_map*n_steps_map
     plykin = flow_sens.Sensitivity(solver_ode,n_steps)
     t0 = clock()

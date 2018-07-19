@@ -120,9 +120,9 @@ class Sensitivity:
         w_inv = zeros((n_steps,state_dim))
         adjoint_step = solver.adjoint_step
         for i in range(n_steps - 1):
-            w_inv[i+1] = adjoint_step(w_inv[i+1],u[i],\
+            w_inv[i+1] = -adjoint_step(w_inv[i+1],u[i],\
                     s0, zeros(state_dim))\
-                    - source_foradj[i]*solver.dt
+                    + source_foradj[i]*solver.dt
             w_inv[i+1] = dot(w_inv[i+1], v0[i+1])*\
                     v0[i+1]
         return w_inv
