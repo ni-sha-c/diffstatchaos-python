@@ -1,0 +1,6 @@
+Why doesn\'t this work with python2 (at least until 2.8.x)?
+
+Because the numba python2 package does not have support
+for jit-ted classes that have members.
+
+Just use python3
