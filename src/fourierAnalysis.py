@@ -1,15 +1,8 @@
 #Statistical sensitivity analysis algorithm for maps.
-from __future__ import division
-from __future__ import print_function
-import sys
-import pdb
 from pylab import *
 from numpy import *
-from time import clock
-from util import *
-
 from numba import jitclass
-from numba import int64, float64
+from numba import float64, int64
 spec = []
 
 @jitclass(spec)
@@ -64,7 +57,18 @@ class FourierAnalysis:
 
 
     def compute_correlation(self,f,g,n):
-        for i in range(f.shape[0]):
+        corr = 0.0
+        N = f.shape[0]-n+1
+        for i in range(N):
+            corr += f[i]*g[n+i]/N
+        return corr
+
+    def compute_correlation_function(self,f,g,n_max):
+        corr_fg = zeros(n_max)
+        for n in range(1,n_max + 1):
+            corr_fg[n-1] = self.compute_correlation(f,g,n)
+        return corr_fg
+
             
 
 
