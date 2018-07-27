@@ -6,30 +6,50 @@ from numba import jit
 from matplotlib import *
 from fourierAnalysis import *
 sys.path.insert(0,'../examples/')
-from kuznetsov import *
+from sawtooth import *
 
 foa = FourierAnalysis()
 solver = Solver()
+decorr_len_max = 40
+decorr_len_half = decorr_len_max//2
 u = foa.solve_primal(solver, \
         solver.u_init, \
-        solver.n_poincare*1000, solver.s0)
+        50000*decorr_len_max,\
+        solver.s0)
 
+n_max = 100
 u = u.T
-'''
-n_max = 500
-corr_uu = foa.compute_correlation_function(u[0],u[0],n_max) - \
-        mean(u[0])*mean(u[0])
+f = u[0]
+g = u[0]
+expf_expg = mean(f)*mean(g)
+n_samples = f.shape[0]//decorr_len_max
+corr_uu_full = foa.compute_correlation_function(f,g,n_max,\
+        n_samples,\
+        1) - \
+        expf_expg
+corr_uu_decorr = foa.compute_correlation_function(f,g,n_max,\
+        n_samples,\
+        decorr_len_max) - expf_expg
+
+corr_uu_decorr_half = foa.compute_correlation_function(f,g,n_max,\
+        n_samples,\
+        decorr_len_half) - expf_expg
+
 figure()
-plot(range(1,n_max+1),corr_uu ,".")
+plot(range(1,n_max+1),corr_uu_full)
+plot(range(1,n_max+1),corr_uu_decorr)
+plot(range(1,n_max+1),corr_uu_decorr_half)
+legend(["D = 1", "D = %d" %(decorr_len_half), \
+        "D = %d" %(decorr_len_max)])
 title(r'$\rho_{u,u}}$')
 
-
+'''
 dft_corr_uu = (2.0/n_max)*\
         abs(fft.fft(corr_uu))[:n_max//2]
 figure()
 plot(range(n_max//2),dft_corr_uu)
 title(r'$\hat{\rho}_{u,u}}$')
-
+'''
 
 '''
 fig, ax = subplots(nrows=3,ncols=3)
@@ -65,6 +85,7 @@ r = sqrt(u[0]**2.0 + u[1]**2.0 + \
 theta = arccos(u[2]/r)
 phi = arctan2(u[1],u[0])
 corr_theta_phi = foa.compute_correlation_function(theta,phi,n_max)
+corr_theta_phi -= mean(theta)*mean(phi)
 figure()
 plot(range(1,n_max+1),corr_theta_phi)
 title(r'$\rho_{\theta,\phi}}$')
@@ -76,4 +97,4 @@ figure()
 plot(range(n_max//2),dft_corr_theta_phi)
 title(r'$\hat{\rho}_{\theta,\phi}}$')
 
-
+'''
