@@ -22,7 +22,7 @@ class FourierAnalysis:
             u, v_init, n_steps, s):
         v = empty((n_steps, v_init.size))
         v[0] = v_init
-        v[0] /= norm(v[0])
+        v[0] /= linalg.norm(v[0])
         for i in range(1,n_steps):
             v[i] = dot(solver_map.gradFs(u[i-1],s),v[i-1])
             v[i] /= linalg.norm(v[i])
@@ -52,8 +52,14 @@ class FourierAnalysis:
 
 
 
-    def compute_fourier_transform(self,u,J,xi):
-        pass
+    def compute_fourier_transform_pullback(self,u,f,xi,\
+            n,n_samples,decorr_len):
+        g = exp(1j*dot(u,xi))
+        expf_expg = mean(f)*mean(g)
+        return self.compute_correlation_function\
+                (f,g,n,n_samples,decorr_len) - \
+                expf_expg
+        
 
 
     def compute_correlation(self,f,g,n,n_samples,decorr_len):
