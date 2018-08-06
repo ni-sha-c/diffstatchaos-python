@@ -2,7 +2,6 @@ import sys
 sys.path.insert(0, '../examples/')
 import kuznetsov_poincare as kmap
 import kuznetsov as kode
-from objective import *
 import map_sens as map_sens
 import flow_sens as flow_sens
 from time import clock
