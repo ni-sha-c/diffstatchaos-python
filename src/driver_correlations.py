@@ -6,7 +6,7 @@ from numba import jit
 from matplotlib import *
 from fourierAnalysis import *
 sys.path.insert(0,'../examples/')
-from sawtooth import *
+from kuznetsov_poincare import *
 
 foa = FourierAnalysis()
 solver = Solver()
@@ -21,28 +21,26 @@ n_max = 100
 u = u.T
 f = u[0]
 g = u[0]
-expf_expg = mean(f)*mean(g)
 n_samples = f.shape[0]//decorr_len_max
 corr_uu_full = foa.compute_correlation_function(f,g,n_max,\
-        n_samples,\
-        1) - \
-        expf_expg
-corr_uu_decorr = foa.compute_correlation_function(f,g,n_max,\
-        n_samples,\
-        decorr_len_max) - expf_expg
+        f.shape[0],\
+        1) 
+#corr_uu_decorr = foa.compute_correlation_function(f,g,n_max,\
+#        f.shape[0],\
+#        decorr_len_max)
 
-corr_uu_decorr_half = foa.compute_correlation_function(f,g,n_max,\
-        n_samples,\
-        decorr_len_half) - expf_expg
+#corr_uu_decorr_half = foa.compute_correlation_function(f,g,n_max,\
+#        f.shape[0],\
+#        decorr_len_half)
 
 figure()
-plot(range(1,n_max+1),corr_uu_full)
-plot(range(1,n_max+1),corr_uu_decorr)
-plot(range(1,n_max+1),corr_uu_decorr_half)
-legend(["D = 1", "D = %d" %(decorr_len_half), \
-        "D = %d" %(decorr_len_max)])
+plot(range(1,n_max+1),corr_uu_full,"o")
+#plot(range(1,n_max+1),corr_uu_decorr)
+#plot(range(1,n_max+1),corr_uu_decorr_half)
+#legend(["D = 1", "D = %d" %(decorr_len_half), \
+#        "D = %d" %(decorr_len_max)])
 title(r'$\rho_{u,u}}$')
-
+savefig('../examples/plots/plykin_poincare_corr_xx')
 '''
 dft_corr_uu = (2.0/n_max)*\
         abs(fft.fft(corr_uu))[:n_max//2]

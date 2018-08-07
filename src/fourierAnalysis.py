@@ -65,19 +65,18 @@ class FourierAnalysis:
     def compute_correlation(self,f,g,n,n_samples,decorr_len):
         corr = 0.0
         N = f.shape[0]-n
-        n_samples_corrected = 0
+       
+        fbar = mean(f)
+        gbar = mean(g)
         for i in range(0,N,decorr_len):
-            corr += f[i]*g[n+i]/n_samples
-            n_samples_corrected += 1
-            if(n_samples_corrected == n_samples):
-                break
+            corr += (f[i] - fbar)*(g[n+i] - gbar)/n_samples
         return corr
 
     def compute_correlation_function(self,f,g,n_max,\
             n_samples,decorr_len):
         corr_fg = zeros(n_max)
-        for n in range(1,n_max + 1):
-            corr_fg[n-1] = self.compute_correlation(f,g,n,\
+        for n in range(n_max):
+            corr_fg[n] = self.compute_correlation(f,g,n,\
                     n_samples,decorr_len)
         return corr_fg
 
