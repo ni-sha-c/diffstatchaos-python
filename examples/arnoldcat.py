@@ -31,4 +31,10 @@ class Solver:
         return u1
 
 
+    def get_lyapunov_exponents_vectors(self):
+        DF = array([2.0,1.0,1.0,1.0]).reshape(2,2)
+        lyapunov_exponents, v_basis = eig(DF)
+        return lyapunov_exponents, v_basis
 
+    def gradFs(self,u,s):
+        return array([2.0,1.0,1.0,1.0]).reshape(2,2)

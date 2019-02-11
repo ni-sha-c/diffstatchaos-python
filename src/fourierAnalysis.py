@@ -12,8 +12,8 @@ class FourierAnalysis:
 
     def solve_primal(self, solver_map, u_init, n_steps, s):
         u = empty((n_steps, u_init.size))
-        u[0] = u_init
-        for i in range(1,n_steps):
+        u[-1] = u_init
+        for i in range(n_steps):
             u[i] = solver_map.primal_step(u[i-1],s,1)
         return u
     
@@ -81,5 +81,36 @@ class FourierAnalysis:
         return corr_fg
 
             
+    def compute_timeshifted_objective(self,solver,J,u0,n):
+        n_samples = u0.shape[0]
+        objective_trj = zeros((n_samples,n))
+        s0 = solver.s0
+        for i in range(n_samples):
+            u_trj = self.solve_primal(solver,u0[i],\
+                    n,s0).T
+            objective_trj[i] = J(u_trj)
+        return objective_trj
 
+
+    def compute_directional_derivative_timeshifted_objective(self,solver,DJ,u0,x,n_steps):
+        n_samples = u0.shape[0]
+        dJdx_trj = zeros((n_samples,n_steps))
+        s0 = solver.s0
+        v = zeros((n_steps,u0.shape[1]))
+        for i in range(n_samples):
+            u_trj = self.solve_primal(solver,u0[i],\
+                    n_steps,s0)
+            v[0] = x[i]
+            dJdx_trj[i,0] = dot(DJ(u_trj[0]),v[0])
+            for n in range(1,n_steps):
+                v[n] = dot(solver.gradFs(u_trj[n-1],s0),\
+                        v[n-1])
+                dJdx_trj[i,n] = dot(DJ(u_trj[n]),\
+                        v[n])
+        return dJdx_trj
+
+
+
+    
+        
 

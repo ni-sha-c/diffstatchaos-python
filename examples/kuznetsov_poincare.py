@@ -29,6 +29,8 @@ class Solver:
         self.n_poincare = int(ceil(self.T/self.dt))
         self.u_init = rand(self.state_dim)*(self.boundaries[1]- \
                      self.boundaries[0]) + self.boundaries[0]
+        u_init_norm = norm(self.u_init)
+        self.u_init /= u_init_norm
         self.u_init[-1] = 0.0
         self.param_dim = self.s0.size
         self.n_theta = 20
@@ -187,7 +189,29 @@ class Solver:
         phi = arctan2(y,x)
         return r,theta,phi
     
+   
+    def convert_tangent_to_stereo(self, u, v):
+        x = u[0]
+        y = u[1]
+        z = u[2]
+        vx = v[0]
+        vy = v[1]
+        vz = v[2]
+        sqrt2 = sqrt(2.0)
+        deno = (x + z + sqrt2)
+        deno = deno*deno
+        dx1_dx = sqrt2*(sqrt2 + 1)/deno
+        dx1_dy = zeros_like(x)
+        dx1_dz = -sqrt2*(sqrt2*x + 1)/deno
+
+        dx2_dx = -sqrt2*y/deno
+        dx2_dy = sqrt2/(x + z + sqrt2)
+        dx2_dz = -sqrt2*y/deno
     
+        v1 = dx1_dx*vx + dx1_dy*vy + dx1_dz*vz
+        v2 = dx2_dx*vx + dx2_dy*vy + dx2_dz*vz
+        return v1, v2
+
     def stereographic_projection(self,u):
         x = u[0]
         y = u[1]
@@ -198,7 +222,21 @@ class Solver:
         im_part = y*sqrt(2.0)/deno
     
         return re_part,im_part
-    
+  
+    def spherical_projection(self,u):
+        x1 = u[0]
+        x2 = u[1]
+        deno = 1. + x1*x1 + x2*x2
+        r = deno - 1.
+
+        x = (2.0*x1 + 1. - r)/sqrt(2.0)/\
+                deno
+        y = 2.0*x2/deno
+        z = (1. - r - 2.0*x1)/sqrt(2.0)/\
+                deno
+        return x,y,z
+
+
     def tangent_source_half(self,v,u,s0,ds,sigma,a):
         emmu = exp(-s0[1])
         x = u[0]
