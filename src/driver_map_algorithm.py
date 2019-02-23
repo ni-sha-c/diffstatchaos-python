@@ -14,6 +14,7 @@ if __name__ == "__main__":
     n_steps = 5000
     s3_map = map_sens.Sensitivity(solver,n_steps)
     n_runup = s3_map.n_runup
+    n_runup_forward_adjoint = 10
 
     u_init = solver.u_init
     s0 = solver.s0
@@ -52,8 +53,8 @@ if __name__ == "__main__":
     divdfds = zeros(n_steps)
 
     source_tangent = s3_map.compute_source_tangent(solver, u_trj, n_steps, s0)[:,0,:] 
-#    J_theta_phi = compute_objective(u,s0,n_steps,n_points_theta,n_points_phi)
- #   DJ_theta_phi = compute_gradient_objective(u,s0,n_steps,n_points_theta,n_points_phi)
+    J_theta_phi = s3_map.compute_objective(solver, u_trj,s0,n_steps,n_points_theta,n_points_phi)
+    DJ_theta_phi = s3_map.compute_gradient_objective(solver, u_trj,s0,n_steps,n_points_theta,n_points_phi)
     source_forward_adjoint = s3_map.compute_source_forward_adjoint(solver, u_trj, n_steps, s0)
 
     unstable_sensitivity_source = s3_map.compute_source_sensitivity(solver,u_trj,n_steps,s0)
@@ -63,11 +64,51 @@ if __name__ == "__main__":
 
     w0 = s3_map.solve_unstable_adjoint_direction(solver, u_trj, w0_init, n_steps, s0)
 
+    ds1 = copy(ds0)
+    ds1[0] = 1.0
+    print('Starting stable-(adjoint-unstable) split evolution...')
+    t13 = clock()
+    unstable_sensitivity_source = unstable_sensitivity_source[:,0]
+    dJds_stable, dJds_unstable, w0_inv, gsum_history = s3_map.compute_sensitivity(solver,u_trj,s0,v0,w0,J_theta_phi,\
+            DJ_theta_phi,\
+            source_tangent,\
+            unstable_sensitivity_source, \
+            source_forward_adjoint,\
+            n_steps,n_runup_forward_adjoint)
+    t14 = clock()
+    print('{:<35s}{:>16.10f}'.format("time taken",t14-t13))
+    print('End of computation...')
+
+    dJds = dJds_stable + dJds_unstable
+    theta = linspace(0,pi,n_points_theta)
+    phi = linspace(-pi,pi,n_points_phi)
+    figure()
+    contourf(phi,theta,dJds_stable,100)
+    xlabel(r"$\phi$")
+    ylabel(r"$\theta$")
+    colorbar()
+    figure()
+    #visualize_tangent_3D(u,w0_inv)
+    #savefig("../examples/plots/plykin_poincare_main_stable")
+    #figure()
+    contourf(phi,theta,dJds_unstable,100)
+    xlabel(r"$\phi$")
+    ylabel(r"$\theta$")
+    colorbar()
+    #savefig("../examples/plots/plykin_poincare_main_unstable")
+    figure()
+    contourf(phi,theta,dJds_unstable+dJds_stable,100)
+    xlabel(r"$\phi$")
+    ylabel(r"$\theta$")
+    colorbar()
+    #savefig("../examples/plots/plykin_poincare_main_total")
+
+
 
 def plot_tangent_vectors_3D(u_trj, v):
     n_points = u_trj.shape[0]
     state_dim = u_trj.shape[1]
-    fig = figure()
+    fig = figure(figsize=[20,15])
     ax = fig.add_subplot(111, projection='3d')
     
     n_grid = 50
@@ -105,16 +146,84 @@ def plot_tangent_vectors_3D(u_trj, v):
     for i in range(n_points):
         ax.plot(u_to_upv_x[i],\
             u_to_upv_y[i],\
-            u_to_upv_z[i],linewidth=2.5,color='b')
+            u_to_upv_z[i],linewidth=2.5,color='r')
     ax.set_xlabel("x",fontsize=24)
     ax.set_ylabel("y",fontsize=24)
     ax.set_zlabel("z",fontsize=24)
     ax.tick_params(axis='both',labelsize=24)
     return fig, ax
 
-
-def plot_tangent_vectors_2D(solver, u_trj, v):
+def plot_tangent_and_adjoint_vectors_3D(u_trj, v, w):
+    n_points = u_trj.shape[0]
+    state_dim = u_trj.shape[1]
+    fig = figure(figsize=[20,15])
+    ax = fig.add_subplot(111, projection='3d')
     
+    n_grid = 50
+    theta_grid = linspace(0.,pi,n_grid)
+    phi_grid = linspace(-pi,pi,n_grid)
+    theta_grid, phi_grid = meshgrid(theta_grid, phi_grid)
+
+    ct_grid = cos(theta_grid)
+    st_grid = sin(theta_grid)
+    cp_grid = cos(phi_grid)
+    sp_grid = sin(phi_grid)
+
+    x_grid = st_grid*cp_grid
+    y_grid = st_grid*sp_grid
+    z_grid = ct_grid
+    
+    ax.plot_surface(x_grid, y_grid,\
+            z_grid,color="k",alpha=0.2)
+    u_trj = u_trj.T
+    v = v[::10]
+    v = v.T
+    v /= norm(v,axis=0)
+    w = w[::10]
+    w = w.T
+    w /= norm(w,axis=0)
+
+    ax.plot(u_trj[0],u_trj[1],\
+            u_trj[2],'k.',alpha=0.5,ms=10)
+   
+    u_start = u_trj[:,::10]
+    u_end = u_start + 2.e-1*v
+    n_points = u_start.shape[1]
+    u_to_upv_x = array([u_start[0],u_end[0]]).\
+            reshape(2, n_points).T
+    u_to_upv_y = array([u_start[1],u_end[1]]).\
+            reshape(2, n_points).T
+    u_to_upv_z = array([u_start[2],u_end[2]]).\
+            reshape(2, n_points).T
+    for i in range(n_points):
+        ax.plot(u_to_upv_x[i],\
+            u_to_upv_y[i],\
+            u_to_upv_z[i],linewidth=2.5,color='r')
+    
+    u_start = u_trj[:,::10]
+    u_end = u_start + 2.e-1*w
+    n_points = u_start.shape[1]
+    u_to_upv_x = array([u_start[0],u_end[0]]).\
+            reshape(2, n_points).T
+    u_to_upv_y = array([u_start[1],u_end[1]]).\
+            reshape(2, n_points).T
+    u_to_upv_z = array([u_start[2],u_end[2]]).\
+            reshape(2, n_points).T
+    for i in range(n_points):
+        ax.plot(u_to_upv_x[i],\
+            u_to_upv_y[i],\
+            u_to_upv_z[i],linewidth=2.5,color='b')
+    
+        
+    ax.set_xlabel("x",fontsize=24)
+    ax.set_ylabel("y",fontsize=24)
+    ax.set_zlabel("z",fontsize=24)
+    ax.tick_params(axis='both',labelsize=24)
+    tight_layout()
+    return fig, ax
+
+
+def plot_tangent_vectors_2D(u_trj, v):
     n_points = u_trj.shape[0]
     state_dim = u_trj.shape[1]
     u_trj = u_trj.T
@@ -189,43 +298,5 @@ def plot_directional_derivative(u_trj, derivative_fn_handle, v_trj, solver):
             "b", linewidth=2.5)
     return fig, ax
 
-    '''    
-    ds1 = copy(ds0)
-    ds1[0] = 1.0
-    print('Starting stable-(adjoint-unstable) split evolution...')
-    t13 = clock()
-    unstable_sensitivity_source = unstable_sensitivity_source[:,0]
-    dJds_stable, dJds_unstable, w0_inv, gsum_history = compute_sensitivity(u,s0,v0,w0,J_theta_phi,\
-            DJ_theta_phi,\
-            source_tangent,\
-            unstable_sensitivity_source, \
-            source_forward_adjoint,\
-            n_steps,n_runup_forward_adjoint)
-    t14 = clock()
-    print('{:<35s}{:>16.10f}'.format("time taken",t14-t13))
-    print('End of computation...')
+        
 
-    dJds = dJds_stable + dJds_unstable
-    theta = linspace(0,pi,n_points_theta)
-    phi = linspace(-pi,pi,n_points_phi)
-    figure()
-    contourf(phi,theta,dJds_stable,100)
-    xlabel(r"$\phi$")
-    ylabel(r"$\theta$")
-    colorbar()
-    figure()
-    #visualize_tangent_3D(u,w0_inv)
-    #savefig("../examples/plots/plykin_poincare_main_stable")
-    #figure()
-    contourf(phi,theta,dJds_unstable,100)
-    xlabel(r"$\phi$")
-    ylabel(r"$\theta$")
-    colorbar()
-    #savefig("../examples/plots/plykin_poincare_main_unstable")
-    figure()
-    contourf(phi,theta,dJds_unstable+dJds_stable,100)
-    xlabel(r"$\phi$")
-    ylabel(r"$\theta$")
-    colorbar()
-    #savefig("../examples/plots/plykin_poincare_main_total")
-    '''

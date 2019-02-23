@@ -284,9 +284,12 @@ class Sensitivity:
 
 
 
-        
-        
-    '''
+    def compute_sensitivity(self, solver, u, s, v0, w0, \
+            J, dJ, dFds, dJds_0,\
+            source_forward_adjoint, \
+            n_steps, n_runup_forward_adjoint):
+        state_dim = u.shape[1]
+        N = u.shape[0]
         g = zeros(n_runup_forward_adjoint)
         w_inv = zeros((n_steps,state_dim))
         v = zeros(state_dim)
@@ -296,6 +299,9 @@ class Sensitivity:
         gsum_history = zeros(n_steps)
         dFds_unstable = zeros(state_dim)
         n_samples = N - 2*n_runup_forward_adjoint
+        gradFs = solver.gradFs
+        dJds_stable = zeros((n_points_theta,n_points_phi))
+        dJds_unstable = zeros((n_points_theta,n_points_phi))
         for n in range(N-1):
             b = dJds_0[n]
             q = source_forward_adjoint[n]
@@ -316,7 +322,7 @@ class Sensitivity:
                                 (sum(g)-gsum_mean/n)/n_samples
                         dJds_stable[binno_t,binno_p] += \
                                 dot(dJ[n+1,binno_t,binno_p], v)/n_samples
-    '''
+        return dJds_stable, dJds_unstable, w_inv, gsum_history 
         
     
     
