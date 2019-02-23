@@ -236,6 +236,30 @@ class Solver:
                 deno
         return x,y,z
 
+    def convert_tangent_to_spherical(self,u,v):
+        x1 = u[0]
+        x2 = u[1]
+        v1 = v[0]
+        v2 = v[1]
+        deno = 1. + x1*x1 + x2*x2
+        r = deno - 1.
+        deno = deno*deno
+        sqrt2 = sqrt(2.0)
+        dx_dx1 = (sqrt2*(1 - 2*x1 - r))/deno 
+        dx_dx2 = -2.0*sqrt2*(1 + x1)*x2/deno 
+
+        dy_dx1 = -4.*x1*x2/deno
+        dy_dx2 = 2.*(1 + x1*x1 - x2*x2)/deno 
+
+        dz_dx1 = sqrt2*(-1 - 2*x1 + x1*x1 - x2*x2)/deno
+        dz_dx2 = 2*sqrt2*(-1 + x1)*x2/deno 
+
+        vx = dx_dx1*v1 + dx_dx2*v2
+        vy = dy_dx1*v1 + dy_dx2*v2
+        vz = dz_dx1*v1 + dz_dx2*v2
+
+        return vx, vy, vz
+
 
     def tangent_source_half(self,v,u,s0,ds,sigma,a):
         emmu = exp(-s0[1])
