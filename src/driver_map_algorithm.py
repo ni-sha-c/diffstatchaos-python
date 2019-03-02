@@ -9,6 +9,7 @@ from time import clock
 from pylab import *
 from mpl_toolkits.mplot3d import Axes3D
 
+#def compute_sensitivity():
 if __name__ == "__main__":
     solver = kp.Solver()
     n_steps = 5000

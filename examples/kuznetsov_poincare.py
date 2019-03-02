@@ -190,17 +190,16 @@ class Solver:
         return r,theta,phi
     
    
-    def convert_tangent_to_stereo(self, u, v):
+    def convert_tangent_to_spherical(self, u, v):
         x = u[0]
         y = u[1]
         z = u[2]
-        vx = v[0]
-        vy = v[1]
-        vz = v[2]
+        v1 = v[0]
+        v2 = v[1]
         sqrt2 = sqrt(2.0)
         deno = (x + z + sqrt2)
         deno = deno*deno
-        dx1_dx = sqrt2*(sqrt2 + 1)/deno
+        dx1_dx = sqrt2*(sqrt2*z + 1)/deno
         dx1_dy = zeros_like(x)
         dx1_dz = -sqrt2*(sqrt2*x + 1)/deno
 
@@ -208,9 +207,10 @@ class Solver:
         dx2_dy = sqrt2/(x + z + sqrt2)
         dx2_dz = -sqrt2*y/deno
     
-        v1 = dx1_dx*vx + dx1_dy*vy + dx1_dz*vz
-        v2 = dx2_dx*vx + dx2_dy*vy + dx2_dz*vz
-        return v1, v2
+        vx = dx1_dx*v1 + dx2_dx*v2 
+        vy = dx1_dy*v1 + dx2_dy*v2 
+        vz = dx1_dz*v1 + dx2_dz*v2 
+        return vx, vy, vz
 
     def stereographic_projection(self,u):
         x = u[0]
@@ -236,7 +236,7 @@ class Solver:
                 deno
         return x,y,z
 
-    def convert_tangent_to_spherical(self,u,v):
+    def convert_tangent_to_stereo(self,u,v):
         x1 = u[0]
         x2 = u[1]
         v1 = v[0]
@@ -254,11 +254,10 @@ class Solver:
         dz_dx1 = sqrt2*(-1 - 2*x1 + x1*x1 - x2*x2)/deno
         dz_dx2 = 2*sqrt2*(-1 + x1)*x2/deno 
 
-        vx = dx_dx1*v1 + dx_dx2*v2
-        vy = dy_dx1*v1 + dy_dx2*v2
-        vz = dz_dx1*v1 + dz_dx2*v2
+        v1 = dx_dx1*vx + dy_dx1*vy + dz_dx1*vz
+        v2 = dx_dx2*vx + dy_dx2*vy + dz_dx2*vz
 
-        return vx, vy, vz
+        return v1, v2
 
 
     def tangent_source_half(self,v,u,s0,ds,sigma,a):
