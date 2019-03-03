@@ -89,10 +89,10 @@ if __name__ == "__main__":
             diag(ones(state_dim-2), -2)
 
 
-    advection_coeff = 0.5*dx_inv
-    diffusion_coeff = dx_inv_sq
-    super_diffusion_coeff = dx_inv_4
-    nonlinear_coeff = 0.25*dx_inv
+    advection_coeff = -1.*c*0.5*dx_inv
+    diffusion_coeff = -1.*dx_inv_sq
+    super_diffusion_coeff = -1.*dx_inv_4
+    nonlinear_coeff = -1.*0.25*dx_inv
 
    
     super_diagonal_matrix_coeff = (advection*advection_coeff + \
@@ -115,15 +115,17 @@ if __name__ == "__main__":
            super_super_diagonal_matrix_coeff*super_super_diagonal_matrix + \
            sub_sub_diagonal_matrix_coeff*sub_sub_diagonal_matrix
 
+    linear_matrix[0, 0] += super_diffusion_coeff
+    linear_matrix[-1, -1] += super_diffusion_coeff
+
     linear_contrib = dot(linear_matrix, u)
+    
      
     u_sq = u*u
-    Bu = zeros_like(u_sq)
-    Bu[1:-1] = u_sq[2:]-u_sq[:-2]
-    Bu[0] = u_sq[1]
-    Bu[-1] = -u_sq[-2]
-    Bu *= 4.0*dx_inv
-    dudt = dot(A,u) + Bu
-    print(A)
-    print(Bu)
+    nonlinear_contrib = zeros_like(u_sq)
+    nonlinear_contrib[1:-1] = u_sq[2:]-u_sq[:-2]
+    nonlinear_contrib[0] = u_sq[1]
+    nonlinear_contrib[-1] = -u_sq[-2]
+    nonlinear_contrib *= nonlinear_coeff
 
+    dudt = linear_contrib + nonlinear_contrib
