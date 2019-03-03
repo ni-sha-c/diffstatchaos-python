@@ -2,8 +2,6 @@ from pylab import *
 from numpy import *
 from numba import jitclass
 from numba import int64, float64
-from matplotlib.pyplot import *
-from mpl_toolkits import Axes3D
 spec = [
     ('L', float64),
     ('dt', float64),
@@ -106,11 +104,12 @@ class Solver:
 
 
 @jit(nopython=True)
-def solve_primal(solver, u0, n_steps):
-    
-
-if __name__ == "__main__":
-    fig = figure()
-    ax = fig.add_subplot(111)
-
+def solve_primal(solver, u0, s, n_steps):
+    state_dim = u0.shape[0]
+    u_trj = zeros((n_steps, state_dim))
+    u_trj[0] = u0
+    for n in range(1,n_steps+1):
+        u_trj[i-1] = solver.primal_step(u_trj[i-1],\
+                s, 1)
+    return u_trj
 
