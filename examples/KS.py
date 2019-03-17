@@ -2,6 +2,7 @@ from pylab import *
 from numpy import *
 from numba import jitclass
 from numba import int64, float64
+from numba import jit
 spec = [
     ('L', float64),
     ('dt', float64),
@@ -16,8 +17,8 @@ class Solver:
 
     def __init__(self):
         self.dt = 1.e-1
-        self.L = 8
-        self.state_dim = 7
+        self.L = 128
+        self.state_dim = 127
         self.param_dim = 5
         self.boundaries = ones((2,self.state_dim))        
         self.boundaries[0] = -0.5
@@ -27,8 +28,7 @@ class Solver:
         u_init_norm = norm(self.u_init)
         self.u_init /= u_init_norm
         self.s0 = zeros(self.param_dim)
-        self.s0[0] = 0.5
-        self.u_init[-1] = 0.0
+        self.s0[0] = 0.8
 
     
     def primal_step(self,u0,s,n=1):
@@ -108,8 +108,8 @@ def solve_primal(solver, u0, s, n_steps):
     state_dim = u0.shape[0]
     u_trj = zeros((n_steps, state_dim))
     u_trj[0] = u0
-    for n in range(1,n_steps+1):
-        u_trj[i-1] = solver.primal_step(u_trj[i-1],\
+    for n in range(1,n_steps):
+        u_trj[n] = solver.primal_step(u_trj[n-1],\
                 s, 1)
     return u_trj
 
