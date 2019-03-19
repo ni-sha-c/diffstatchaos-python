@@ -29,23 +29,86 @@ class Solver:
         self.u_init /= u_init_norm
         self.s0 = zeros(self.param_dim)
         self.s0[0] = 0.8
+        self.n_stage = 4
+        self.A_exp = self.populate_A_exp()
+        self.A_imp = self.populate_A_imp()
+        self.b_exp = self.populate_b_exp()
+        self.b_imp = self.populate_b_imp()
+        self.c_exp = self.populate_c_exp()
+        self.c_imp = self.populate_c_imp()
+        
 
-    
+    def populate_A_exp(self):
+        n_stage = self.n_stage
+        A = zeros((n_stage, n_stage))
+        A[1, 0] = 1./3.
+        A[2, 1] = 1.
+        A[3, 1] = 3./4.
+        A[3, 2] = 1./4.
+        return A
+
+    def populate_A_imp(self):
+        n_stage = self.n_stage
+        A = zeros((n_stage, n_stage))
+        A[1, 1] = 1./3.
+        A[2, 1] = 1./2.
+        A[2, 2] = 1./2.
+        A[3, 1] = 3./4.
+        A[3, 2] = -1./4.
+        A[3, 3] = 1./2.
+        return A
+
+    def populate_b_exp(self):
+        n_stage = self.n_stage
+        b = zeros(n_stage)
+        b[1] = 3./4.
+        b[2] = -1./4.
+        b[3] = 1./2.
+        return b
+
+    def populate_b_imp(self):
+        n_stage = self.n_stage
+        b = zeros(n_stage)
+        b[1] = 3./4.
+        b[2] = -1./4.
+        b[3] = 1./2.
+        return b
+
+    def populate_c_exp(self):
+        n_stage = self.n_stage
+        c = ones(n_stage)
+        c[1] = 1./3.
+        c[0] = 0.
+        return c
+
+    def populate_c_imp(self):
+        n_stage = self.n_stage
+        c = ones(n_stage)
+        c[1] = 1./3.
+        c[0] = 0.
+        return c
+
+
     def primal_step(self,u0,s,n=1):
         u = copy(u0)
+        n_stages = 4
+        A_exp = zeros((n_stages, n_stages))
+        A_imp = zeros((n_stages, n_stages))
         for i in range(n):
+            for n in range(n_stages):
             u += self.dt*self.primal_vector_field(u,s)
         return u
 
     def primal_implicit_vector_field(self,u,s):
         state_dim = u.shape[0]
         dx = self.L/(state_dim+1)
-        c = self.s0[0]
         dx_inv = 1./dx
         dx_inv_sq = dx_inv*dx_inv
         dx_inv_4 = dx_inv_sq*dx_inv_sq
+        
         diffusion = 1
         super_diffusion = 1
+        
         super_diagonal_matrix = \
                 diag(ones(state_dim -1), 1)
         sub_diagonal_matrix = \
@@ -58,14 +121,14 @@ class Solver:
                 diag(ones(state_dim-2), -2)
 
 
-        diffusion_coeff = -1.*dx_inv_sq
-        super_diffusion_coeff = -1.*dx_inv_4
+        diffusion_coeff = dx_inv_sq
+        super_diffusion_coeff = dx_inv_4
 
        
         super_diagonal_matrix_coeff = (diffusion*diffusion_coeff + \
                 super_diffusion*super_diffusion_coeff*(-4.0))
         sub_diagonal_matrix_coeff = (diffusion*diffusion_coeff + \
-                super_diffusion*super_diffusion_coeff*(-4.))
+                super_diffusion*super_diffusion_coeff*(-4.0))
         diagonal_matrix_coeff = (diffusion*diffusion_coeff*(-2.0) + \
             super_diffusion*super_diffusion_coeff*(6.0))
         super_super_diagonal_matrix_coeff = \
@@ -83,7 +146,7 @@ class Solver:
         linear_matrix[0, 0] += super_diffusion_coeff
         linear_matrix[-1, -1] += super_diffusion_coeff
 
-        dudt = dot(linear_matrix, u)
+        dudt = -1.0*dot(linear_matrix, u)
         
         return dudt
 
@@ -108,11 +171,11 @@ class Solver:
                 sub_diagonal_matrix
 
         linear_contrib = dot(diff_matrix, u)
-        linear_contrib *= advection_coeff
+        linear_contrib *= c*advection_coeff
 
         u_sq = u*u
         nonlinear_contrib = dot(diff_matrix, u_sq)
-        dudt = linear_contrib + nonlinear_contrib
+        dudt = -1.0*(linear_contrib + nonlinear_contrib)
 
         return dudt
 
