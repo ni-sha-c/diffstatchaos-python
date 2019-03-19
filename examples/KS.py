@@ -16,7 +16,7 @@ spec = [
 class Solver:
 
     def __init__(self):
-        self.dt = 1.e-1
+        self.dt = 5.e-2
         self.L = 128
         self.state_dim = 127
         self.param_dim = 5
@@ -37,16 +37,14 @@ class Solver:
             u += self.dt*self.primal_vector_field(u,s)
         return u
 
-    def primal_vector_field(self,u,s):
+    def primal_implicit_vector_field(self,u,s):
         state_dim = u.shape[0]
         dx = self.L/(state_dim+1)
         c = self.s0[0]
         dx_inv = 1./dx
         dx_inv_sq = dx_inv*dx_inv
         dx_inv_4 = dx_inv_sq*dx_inv_sq
-        advection = 1
         diffusion = 1
-        nonlinear = 1
         super_diffusion = 1
         super_diagonal_matrix = \
                 diag(ones(state_dim -1), 1)
@@ -60,17 +58,13 @@ class Solver:
                 diag(ones(state_dim-2), -2)
 
 
-        advection_coeff = -1.*c*0.5*dx_inv
         diffusion_coeff = -1.*dx_inv_sq
         super_diffusion_coeff = -1.*dx_inv_4
-        nonlinear_coeff = -1.*0.25*dx_inv
 
        
-        super_diagonal_matrix_coeff = (advection*advection_coeff + \
-                diffusion*diffusion_coeff + \
+        super_diagonal_matrix_coeff = (diffusion*diffusion_coeff + \
                 super_diffusion*super_diffusion_coeff*(-4.0))
-        sub_diagonal_matrix_coeff = (advection*advection_coeff*(-1) + \
-                diffusion*diffusion_coeff + \
+        sub_diagonal_matrix_coeff = (diffusion*diffusion_coeff + \
                 super_diffusion*super_diffusion_coeff*(-4.))
         diagonal_matrix_coeff = (diffusion*diffusion_coeff*(-2.0) + \
             super_diffusion*super_diffusion_coeff*(6.0))
@@ -89,19 +83,38 @@ class Solver:
         linear_matrix[0, 0] += super_diffusion_coeff
         linear_matrix[-1, -1] += super_diffusion_coeff
 
-        linear_contrib = dot(linear_matrix, u)
+        dudt = dot(linear_matrix, u)
         
-         
-        u_sq = u*u
-        nonlinear_contrib = zeros_like(u_sq)
-        nonlinear_contrib[1:-1] = u_sq[2:]-u_sq[:-2]
-        nonlinear_contrib[0] = u_sq[1]
-        nonlinear_contrib[-1] = -u_sq[-2]
-        nonlinear_contrib *= nonlinear_coeff
-
-        dudt = linear_contrib + nonlinear_contrib
         return dudt
 
+    def primal_explicit_vector_field(self, u, s):
+        
+        state_dim = u.shape[0]
+        dx = self.L/(state_dim+1)
+        c = self.s0[0]
+        dx_inv = 1./dx
+
+        advection = 1
+        nonlinear = 1
+        advection_coeff = 0.5*dx_inv
+        nonlinear_coeff = 0.25*dx_inv
+
+        super_diagonal_matrix = \
+                diag(ones(state_dim -1), 1)
+        sub_diagonal_matrix = \
+                diag(ones(state_dim -1), -1)
+        
+        diff_matrix = super_diagonal_matrix - \
+                sub_diagonal_matrix
+
+        linear_contrib = dot(diff_matrix, u)
+        linear_contrib *= advection_coeff
+
+        u_sq = u*u
+        nonlinear_contrib = dot(diff_matrix, u_sq)
+        dudt = linear_contrib + nonlinear_contrib
+
+        return dudt
 
 @jit(nopython=True)
 def solve_primal(solver, u0, s, n_steps):
