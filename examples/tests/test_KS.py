@@ -45,6 +45,8 @@ if __name__=="__main__":
     fig = figure()
     ax = fig.add_subplot(111)
     ax.plot(c, u_mean, 'o-')
-    
+    savetxt('u_mean.txt', u_mean)
+    savefig('Jmean_vs_c.png')
+
     
 

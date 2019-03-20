@@ -85,7 +85,7 @@ class Solver:
         B = eye(state_dim) - dt*an*A
         return inv(B)
 
-    def primal_step(self,u0,s,n=1):
+    def primal_step(self,u0,s,n_steps=1):
         n_stage = self.n_stage
         dt = self.dt
         state_dim = self.state_dim
@@ -102,7 +102,7 @@ class Solver:
         for n in range(1,n_stage):
             implicit_matrix[n] = self.populate_implicit_matrix(n)
         ui = copy(u0)
-        for i in range(n):
+        for i in range(n_steps):
             u = copy(ui)
             dudt_exp[0] = evf(u,s)
             dudt_imp[0] = dot(ivf,u)
@@ -114,11 +114,9 @@ class Solver:
                         dt*sum(A_imp[n,:n]*(dudt_imp[:n].T), 1) 
             ui += dt*sum(b_exp*(dudt_exp.T), 1) + \
                   dt*sum(b_imp*(dudt_imp.T), 1)
-        print(ui.shape)
         return ui
 
     def primal_implicit_vector_field(self,u,s):
-        print("inside implicit")
         state_dim = u.shape[0]
         dx = self.L/(state_dim+1)
         dx_inv = 1./dx
