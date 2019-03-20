@@ -16,7 +16,7 @@ spec = [
 class Solver:
 
     def __init__(self):
-        self.dt = 1.e-1
+        self.dt = 5.e-2
         self.L = 128
         self.state_dim = 127
         self.param_dim = 5
