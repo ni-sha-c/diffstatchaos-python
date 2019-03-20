@@ -108,13 +108,18 @@ class Solver:
         dudt_imp = zeros((n_stages,state_dim))
         A_exp = self.A_exp
         A_imp = self.A_imp
+        implicit_matrix = zeros((n_stages, state_dim,\
+                state_dim))
+        for n in range(1,n_stages):
+            implicit_matrix[n] = self.implicit_matrix(n)
+
         for i in range(n):
             u = copy(ui)
             dudt_exp[0] = evf(u)
             dudt_imp[0] = ivf(u)
             for n in range(1,n_stages):
                 dudt_exp[n] = evf(u)
-                dudt_imp[n] = ivf(u)
+                dudt_imp[n] = dot(implicit_matrix[n],ivf(u))
                 u = u + dt*sum(A_exp[n]*dudt_exp[:n].T, 1) + \
                         dt*sum(A_imp[n]*dudt_imp[:n].T, 1) 
             ui = copy(u)
