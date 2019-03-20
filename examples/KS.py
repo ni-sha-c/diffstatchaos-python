@@ -11,6 +11,11 @@ spec = [
     ('state_dim', int64),
     ('param_dim', int64),
     ('u_init',float64[:]),
+    ('n_stage', int64),
+    ('A_imp', float64[:,:]),
+    ('A_exp', float64[:,:]),
+    ('b_exp',float64[:]),
+    ('b_imp',float64[:])
 ]
 @jitclass(spec)
 class Solver:
@@ -34,8 +39,6 @@ class Solver:
         self.A_imp = self.populate_A_imp()
         self.b_exp = self.populate_b_exp()
         self.b_imp = self.populate_b_imp()
-        self.c_exp = self.populate_c_exp()
-        self.c_imp = self.populate_c_imp()
         
 
     def populate_A_exp(self):
@@ -74,60 +77,48 @@ class Solver:
         b[3] = 1./2.
         return b
 
-    def populate_c_exp(self):
-        n_stage = self.n_stage
-        c = ones(n_stage)
-        c[1] = 1./3.
-        c[0] = 0.
-        return c
-
-    def populate_c_imp(self):
-        n_stage = self.n_stage
-        c = ones(n_stage)
-        c[1] = 1./3.
-        c[0] = 0.
-        return c
-
-    def implicit_matrix(self,stage_no):
+    def populate_implicit_matrix(self,stage_no):
         an = self.A_imp[stage_no, stage_no]
         state_dim = self.state_dim
         dt = self.dt
-        A = self.primal_implicit_vector_field(self.u0,\
-                self.s0, True)
+        A = self.primal_implicit_vector_field(self.u_init, self.s0)
         B = eye(state_dim) - dt*an*A
         return inv(B)
 
     def primal_step(self,u0,s,n=1):
-        u = copy(u0)
-        n_stages = 4
+        n_stage = self.n_stage
         dt = self.dt
         state_dim = self.state_dim
         evf = self.primal_explicit_vector_field
-        ivf = self.primal_implicit_vector_field
-        dudt_exp = zeros((n_stages,state_dim))
-        dudt_imp = zeros((n_stages,state_dim))
+        ivf = self.primal_implicit_vector_field(u0,s)
+        dudt_exp = zeros((n_stage,state_dim))
+        dudt_imp = zeros((n_stage,state_dim))
         A_exp = self.A_exp
         A_imp = self.A_imp
-        implicit_matrix = zeros((n_stages, state_dim,\
+        b_exp = self.b_exp
+        b_imp = self.b_imp
+        implicit_matrix = zeros((n_stage, state_dim,\
                 state_dim))
-        for n in range(1,n_stages):
-            implicit_matrix[n] = self.implicit_matrix(n)
-
+        for n in range(1,n_stage):
+            implicit_matrix[n] = self.populate_implicit_matrix(n)
+        ui = copy(u0)
         for i in range(n):
             u = copy(ui)
-            dudt_exp[0] = evf(u)
-            dudt_imp[0] = ivf(u)
-            for n in range(1,n_stages):
-                dudt_exp[n] = evf(u)
-                dudt_imp[n] = dot(implicit_matrix[n],ivf(u))
-                u = u + dt*sum(A_exp[n]*dudt_exp[:n].T, 1) + \
-                        dt*sum(A_imp[n]*dudt_imp[:n].T, 1) 
-            ui = copy(u)
+            dudt_exp[0] = evf(u,s)
+            dudt_imp[0] = dot(ivf,u)
+            for n in range(1,n_stage):
+                dudt_exp[n] = evf(u,s)
+                dudt_imp[n] = dot(implicit_matrix[n],\
+                        dot(ivf,u))
+                u = u + dt*sum(A_exp[n,:n]*(dudt_exp[:n].T), 1) + \
+                        dt*sum(A_imp[n,:n]*(dudt_imp[:n].T), 1) 
+            ui += dt*sum(b_exp*(dudt_exp.T), 1) + \
+                  dt*sum(b_imp*(dudt_imp.T), 1)
+        print(ui.shape)
+        return ui
 
-
-        return u
-
-    def primal_implicit_vector_field(self,u,s,return_matrix=False):
+    def primal_implicit_vector_field(self,u,s):
+        print("inside implicit")
         state_dim = u.shape[0]
         dx = self.L/(state_dim+1)
         dx_inv = 1./dx
@@ -173,11 +164,8 @@ class Solver:
 
         linear_matrix[0, 0] += super_diffusion_coeff
         linear_matrix[-1, -1] += super_diffusion_coeff
-        if(return_matrix == True):
-            return linear_matrix
-
-        dudt = -1.0*dot(linear_matrix, u)
-        return dudt
+        linear_matrix *= -1.0
+        return linear_matrix
 
     def primal_explicit_vector_field(self, u, s):
         
