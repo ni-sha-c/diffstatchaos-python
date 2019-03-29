@@ -30,10 +30,11 @@ if __name__=="__main__":
     n_samples = 10
     n_steps = 2000
     n_runup = 1000
-    n_c = 20
+    n_c = 25
     u_mean = empty(n_c) 
     c = linspace(0.,2.,n_c)
     for i, c_i in enumerate(c):
+        print("c_i is ", c_i)
         for k in range(n_samples):
             mean_noise_init = rand()
             u_init = u0 + 0.1*mean_noise_init
