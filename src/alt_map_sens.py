@@ -282,7 +282,16 @@ class Sensitivity:
         return dJds_us
 
 
-
+    def compute_jacobian_determinant(self, solver, u, s):
+        stat_dim = u.shape[1]
+        n_steps = u.shape[0]
+        gradFs = solver.gradFs
+        detJac = zeros(n_steps)
+        for n in range(n_steps):
+            detJac[n] = det(gradFs(u[n],\
+                    s))
+        return detJac
+        
 
     def compute_sensitivity(self, solver, u, s, v0, w0, \
             J, dJ, dFds, dJds_0,\
@@ -323,6 +332,5 @@ class Sensitivity:
                         dJds_stable[binno_t,binno_p] += \
                                 dot(dJ[n+1,binno_t,binno_p], v)/n_samples
         return dJds_stable, dJds_unstable, w_inv, gsum_history 
-        
-    
+   
     

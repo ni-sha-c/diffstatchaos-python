@@ -259,6 +259,56 @@ class Solver:
 
         return v1, v2
 
+    def convert_to_tangent_onb(self,u,v):
+        x = u[0]
+        y = u[1]
+        z = u[2]
+        x2_p_y2 = sqrt(x*x + y*y)
+        dtheta_dx = x/x2_p_y2/z
+        dtheta_dy = y/x2_p_y2/z
+        dtheta_dz = -1.0/x2_p_y2
+        dphi_dx = y*z*z/x/x
+        dphi_dy = -z*z/x
+
+        vx = v[0]
+        vy = v[1]
+        vz = v[2]
+
+        v_t = vx*dtheta_dx + vy*dtheta_dy + \
+                vz*dtheta_dz
+        v_p = vx*dphi_dx + vy*dphi_dy 
+        v_p /= x2_p_y2
+        
+        return v_t, v_p
+
+    def convert_onb_to_euclidean(self,u):
+        x = u[0]
+        y = u[1]
+        z = u[2]
+        n = size(x)
+        ct = z
+        st = sqrt(x*x + y*y)
+        cp = x/st
+        sp = y/st
+
+        dx_dtheta = ct*cp
+        dx_dphi = -st*sp
+        dy_dtheta = ct*sp
+        dy_dphi = st*cp
+        dz_dtheta = -st
+
+        vt = array([dx_dtheta, \
+                dy_dtheta, \
+                dz_dtheta]).reshape(3,n)
+        vp = array([dx_dphi/st,\
+                dy_dphi/st, \
+                zeros(n)]).reshape(3,n)
+
+
+        return vt, vp
+
+
+
 
     def tangent_source_half(self,v,u,s0,ds,sigma,a):
         emmu = exp(-s0[1])
