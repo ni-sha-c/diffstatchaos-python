@@ -260,7 +260,7 @@ class Solver:
 
         return vx, vy, vz
 
-    def convert_to_tangent_onb(self,u,v):
+    def convert_tangent_euclidean_to_spherical(self,u,v):
         x = u[0]
         y = u[1]
         z = u[2]
@@ -278,14 +278,15 @@ class Solver:
         v_t = vx*dtheta_dx + vy*dtheta_dy + \
                 vz*dtheta_dz
         v_p = vx*dphi_dx + vy*dphi_dy 
-        v_p /= x2_p_y2
         
         return v_t, v_p
 
-    def convert_onb_to_euclidean(self,u):
+    def convert_tangent_spherical_to_euclidean(self,u,v):
         x = u[0]
         y = u[1]
         z = u[2]
+        vtheta = v[0]
+        vphi = v[1]
         n = x.shape[0]
         ct = z
         st = sqrt(x*x + y*y)
@@ -296,14 +297,13 @@ class Solver:
         dy_dtheta = ct*sp
         dy_dphi = st*cp
         dz_dtheta = -1.0*st
-        vt = vstack((dx_dtheta, \
-                dy_dtheta, \
-                dz_dtheta))
-        vp = vstack((dx_dphi/st,\
-                dy_dphi/st, \
-                zeros(n)))
+       
+        vx = dx_dtheta*vtheta + dx_dphi*vphi
+        vy = dy_dtheta*vtheta + dy_dphi*vphi
+        vz = dz_dtheta*vtheta
 
-        return vt, vp
+
+        return vx,vy,vz
 
 
 

@@ -30,21 +30,29 @@ if __name__ == "__main__":
     dJ0 = zeros(state_dim)
     detJac = s3_map.compute_jacobian_determinant(solver,\
             u_trj, s0)
-    vt, vp = solver.convert_onb_to_euclidean(u_trj.T)
-    DF_vt = s3_map.solve_pushforward_tangent(solver,\
-            u_trj, vt.T, s0)
-    DF_vp = s3_map.solve_pushforward_tangent(solver,\
-            u_trj, vp.T, s0)
-    area_expansion = norm(cross(DF_vt, DF_vp),axis=1)
-
-    dx1 = solver.convert_tangent_stereo_to_euclidean(u_trj.T,\
+    q1 = solver.convert_tangent_spherical_to_euclidean(u_trj.T,\
             vstack((ones(n_steps),zeros(n_steps))))
-    dx2 =  solver.convert_tangent_stereo_to_euclidean(u_trj.T,\
+ 
+    q2 = solver.convert_tangent_spherical_to_euclidean(u_trj.T,\
             vstack((zeros(n_steps),ones(n_steps))))
-    dx1 = vstack(dx1)
-    dx2 = vstack(dx2)
-    dotproducts = sum(dx1*dx2,axis=0)
+    q1 = array(q1)
+    q2 = array(q2)
+    q2 /= norm(q2,axis=0)
+    
+    DF_q1 = s3_map.solve_pushforward_tangent(solver,\
+            u_trj, q1.T, s0)
+    DF_q2 = s3_map.solve_pushforward_tangent(solver,\
+            u_trj, q2.T, s0)
+    area_expansion_in_q_basis = norm(cross(DF_q1, DF_q2),axis=1)
 
+    p1 = solver.convert_tangent_stereo_to_euclidean(u_trj.T,\
+            vstack((ones(n_steps),zeros(n_steps))))
+    p2 =  solver.convert_tangent_stereo_to_euclidean(u_trj.T,\
+            vstack((zeros(n_steps),ones(n_steps))))
+    p1 = vstack(p1)
+    p2 = vstack(p2)
+    dotproducts = sum(p1*p2,axis=0)
+    
 
 
      
