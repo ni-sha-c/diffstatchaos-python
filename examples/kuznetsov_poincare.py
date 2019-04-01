@@ -242,10 +242,9 @@ class Solver:
         v1 = v[0]
         v2 = v[1]
         deno = 1. + x1*x1 + x2*x2
-        r = deno - 1.
         deno = deno*deno
         sqrt2 = sqrt(2.0)
-        dx_dx1 = (sqrt2*(1 - 2*x1 - r))/deno 
+        dx_dx1 = (sqrt2*(1 - 2*x1 - x1*x1 + x2*x2))/deno 
         dx_dx2 = -2.0*sqrt2*(1 + x1)*x2/deno 
 
         dy_dx1 = -4.*x1*x2/deno
