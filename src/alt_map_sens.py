@@ -110,7 +110,19 @@ class Sensitivity:
             u[i] = solver_map.primal_step(u[i-1],s,1)
         return u
     
-    
+    def solve_pushforward_tangent(self, solver_map,\
+            u, v, s):
+        gradFs = solver_map.gradFs
+        n_samples = u.shape[0]
+        n_dim = u.shape[1]
+        DF_v = empty_like(v)
+        for n in range(n_samples):
+            DF_v[n] = dot(gradFs(u[n],s)[:-1,:-1]\
+                    ,v[n])
+
+        return DF_v
+
+        
     def solve_unstable_direction(self, solver_map,\
             u, v_init, n_steps, s):
         v = empty((n_steps, v_init.size))

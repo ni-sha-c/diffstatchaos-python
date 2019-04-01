@@ -12,7 +12,7 @@ from mpl_toolkits.mplot3d import Axes3D
 #def compute_sensitivity():
 if __name__ == "__main__":
     solver = kp.Solver()
-    n_steps = 500
+    n_steps = 5
     s3_map = map_sens.Sensitivity(solver,n_steps)
     n_runup = s3_map.n_runup
     n_runup_forward_adjoint = 10
@@ -23,15 +23,31 @@ if __name__ == "__main__":
     param_dim = s0.size
     u_init = solver.primal_step(u_init, s0, n_runup)
     u_trj = s3_map.solve_primal(solver,\
-            solver.u_init, n_steps, solver.s0)
+            u_init, n_steps, solver.s0)
     ds0 = zeros(param_dim)
     ds1 = copy(ds0)
     ds1[0] = 1.0
     dJ0 = zeros(state_dim)
     detJac = s3_map.compute_jacobian_determinant(solver,\
             u_trj, s0)
-    r, theta, phi = solver.convert_to_spherical(u_trj.T)
-    
+    vt, vp = solver.convert_onb_to_euclidean(u_trj.T)
+    DF_vt = s3_map.solve_pushforward_tangent(solver,\
+            u_trj, vt.T, s0)
+    DF_vp = s3_map.solve_pushforward_tangent(solver,\
+            u_trj, vp.T, s0)
+    area_expansion = norm(cross(DF_vt, DF_vp),axis=1)
+
+    dx1 = solver.convert_tangent_stereo_to_euclidean(u_trj.T,\
+            vstack((ones(n_steps),zeros(n_steps))))
+    dx2 =  solver.convert_tangent_stereo_to_euclidean(u_trj.T,\
+            vstack((zeros(n_steps),ones(n_steps))))
+    dx1 = vstack(dx1)
+    dx2 = vstack(dx2)
+    dotproducts = sum(dx1*dx2,axis=0)
+
+
+
+     
     ''' 
     w0 = zeros((n_steps,state_dim))
     w0_init = rand(state_dim)
