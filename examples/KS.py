@@ -22,8 +22,8 @@ class Solver:
 
     def __init__(self):
         self.dt = 5.e-2
-        self.L = 128
-        self.state_dim = 127
+        self.L = 8
+        self.state_dim = 7
         self.param_dim = 5
         self.boundaries = ones((2,self.state_dim))        
         self.boundaries[0] = -0.5
@@ -77,46 +77,46 @@ class Solver:
         b[3] = 1./2.
         return b
 
-    def populate_implicit_matrix(self,stage_no):
+    def primal_implicit_update(self,u,stage_no):
         an = self.A_imp[stage_no, stage_no]
         state_dim = self.state_dim
         dt = self.dt
-        A = self.primal_implicit_vector_field(self.u_init, self.s0)
+        A = self.primal_implicit_matrix(self.u_init, self.s0)
         B = eye(state_dim) - dt*an*A
-        return inv(B)
+        return linalg.solve(B,dot(A,u))
 
     def primal_step(self,u0,s,n_steps=1):
         n_stage = self.n_stage
         dt = self.dt
         state_dim = self.state_dim
         evf = self.primal_explicit_vector_field
-        ivf = self.primal_implicit_vector_field(u0,s)
+        ivf = self.primal_implicit_vector_field
+        iu = self.primal_implicit_update
         dudt_exp = zeros((n_stage,state_dim))
         dudt_imp = zeros((n_stage,state_dim))
         A_exp = self.A_exp
         A_imp = self.A_imp
         b_exp = self.b_exp
         b_imp = self.b_imp
-        implicit_matrix = zeros((n_stage, state_dim,\
-                state_dim))
-        for n in range(1,n_stage):
-            implicit_matrix[n] = self.populate_implicit_matrix(n)
-        ui = copy(u0)
+        u = copy(u0)
         for i in range(n_steps):
-            u = copy(ui)
-            dudt_exp[0] = evf(u,s)
-            dudt_imp[0] = dot(ivf,u)
+            explicit_field = copy(u)
+            implicit_field = iu(explicit_field,0)
+            explicit_field = evf(explicit_field + \
+                    dt*A_imp[0,0]*implicit_field,s)
+            u += dt*b_imp[0]*implicit_field + \
+                    dt*b_exp[0]*explicit_field
             for n in range(1,n_stage):
-                dudt_exp[n] = evf(u,s)
-                dudt_imp[n] = dot(implicit_matrix[n],\
-                        dot(ivf,u))
-                u = u + dt*sum(A_exp[n,:n]*(dudt_exp[:n].T), 1) + \
-                        dt*sum(A_imp[n,:n]*(dudt_imp[:n].T), 1) 
-            ui += dt*sum(b_exp*(dudt_exp.T), 1) + \
-                  dt*sum(b_imp*(dudt_imp.T), 1)
-        return ui
+                explicit_field = u + \
+                        dt*(A_imp[n,n-1] - b_imp[n-1])*implicit_field + \
+                        dt*(A_exp[n,n-1] - b_exp[n-1])*explicit_field
+                implicit_field = iu(explicit_field,n)
+                explicit_field = evf(explicit_field + dt*A_imp[n,n]*implicit_field,s)
+                u += dt*b_imp[n]*implicit_field + \
+                     dt*b_exp[n]*explicit_field
+        return u
 
-    def primal_implicit_vector_field(self,u,s):
+    def primal_implicit_matrix(self,u,s):
         state_dim = u.shape[0]
         dx = self.L/(state_dim+1)
         dx_inv = 1./dx
@@ -125,19 +125,7 @@ class Solver:
         
         diffusion = 1
         super_diffusion = 1
-        
-        super_diagonal_matrix = \
-                diag(ones(state_dim -1), 1)
-        sub_diagonal_matrix = \
-                diag(ones(state_dim -1), -1)
-        diagonal_matrix = \
-                diag(ones(state_dim))
-        super_super_diagonal_matrix = \
-                diag(ones(state_dim-2), 2)
-        sub_sub_diagonal_matrix = \
-                diag(ones(state_dim-2), -2)
-
-
+       
         diffusion_coeff = dx_inv_sq
         super_diffusion_coeff = dx_inv_4
 
@@ -154,22 +142,26 @@ class Solver:
                 super_diffusion*super_diffusion_coeff
 
 
-        linear_matrix = super_diagonal_matrix_coeff*super_diagonal_matrix + \
-               sub_diagonal_matrix_coeff*sub_diagonal_matrix + \
-               diagonal_matrix_coeff*diagonal_matrix + \
-               super_super_diagonal_matrix_coeff*super_super_diagonal_matrix + \
-               sub_sub_diagonal_matrix_coeff*sub_sub_diagonal_matrix
+        linear_matrix = super_diagonal_matrix_coeff*diag(ones(state_dim-1),1) + \
+               sub_diagonal_matrix_coeff*diag(ones(state_dim-1),-1) + \
+               diagonal_matrix_coeff*eye(state_dim) + \
+               super_super_diagonal_matrix_coeff*diag(ones(state_dim-2),2) + \
+               sub_sub_diagonal_matrix_coeff*diag(ones(state_dim-2),-2)
 
         linear_matrix[0, 0] += super_diffusion_coeff
         linear_matrix[-1, -1] += super_diffusion_coeff
         linear_matrix *= -1.0
         return linear_matrix
 
+    def primal_implicit_vector_field(self,u,s):
+        implicit_matrix = self.primal_implicit_matrix(u,s)
+        return dot(implicit_matrix, u)
+
     def primal_explicit_vector_field(self, u, s):
         
         state_dim = u.shape[0]
         dx = self.L/(state_dim+1)
-        c = self.s0[0]
+        c = s[0]
         dx_inv = 1./dx
 
         advection = 1
@@ -177,19 +169,15 @@ class Solver:
         advection_coeff = 0.5*dx_inv
         nonlinear_coeff = 0.25*dx_inv
 
-        super_diagonal_matrix = \
-                diag(ones(state_dim -1), 1)
-        sub_diagonal_matrix = \
-                diag(ones(state_dim -1), -1)
         
-        diff_matrix = super_diagonal_matrix - \
-                sub_diagonal_matrix
-
-        linear_contrib = dot(diff_matrix, u)
+        linear_contrib = dot(diag(ones(state_dim-1),1) - \
+                diag(ones(state_dim-1),-1), u)
         linear_contrib *= c*advection_coeff
 
         u_sq = u*u
-        nonlinear_contrib = dot(diff_matrix, u_sq)
+        nonlinear_contrib = dot(diag(ones(state_dim-1),1)-\
+                diag(ones(state_dim-1),-1), u_sq)
+        nonlinear_contrib *= nonlinear_coeff
         dudt = -1.0*(linear_contrib + nonlinear_contrib)
 
         return dudt

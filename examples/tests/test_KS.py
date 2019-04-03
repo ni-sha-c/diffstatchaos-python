@@ -31,17 +31,19 @@ if __name__=="__main__":
     n_steps = 200
     n_runup = 100
     n_c = 2
-    u_mean = empty(n_c) 
+    u_mean = empty(n_c)
+    s = solver.s0
     c = linspace(0.,2.,n_c)
     for i, c_i in enumerate(c):
         print("c_i is ", c_i)
+        s[0] = c_i
         for k in range(n_samples):
             mean_noise_init = rand()
             u_init = u0 + 0.1*mean_noise_init
             u_init = solver.primal_step(u_init,\
-                    c_i, n_runup)
+                    s, n_runup)
             u_trj_k = solve_primal(solver, \
-                u_init, c_i, n_steps)
+                u_init, s, n_steps)
             u_mean[i] += mean(u_trj_k)/n_samples
     fig = figure()
     ax = fig.add_subplot(111)
