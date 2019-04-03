@@ -190,12 +190,13 @@ class Solver:
         return r,theta,phi
     
    
-    def convert_tangent_to_spherical(self, u, v):
+    def convert_tangent_euclidean_to_stereo(self, u, v):
         x = u[0]
         y = u[1]
         z = u[2]
-        v1 = v[0]
-        v2 = v[1]
+        vx = v[0]
+        vy = v[1]
+        vz = v[2]
         sqrt2 = sqrt(2.0)
         deno = (x + z + sqrt2)
         deno = deno*deno
@@ -207,10 +208,9 @@ class Solver:
         dx2_dy = sqrt2/(x + z + sqrt2)
         dx2_dz = -sqrt2*y/deno
     
-        vx = dx1_dx*v1 + dx2_dx*v2 
-        vy = dx1_dy*v1 + dx2_dy*v2 
-        vz = dx1_dz*v1 + dx2_dz*v2 
-        return vx, vy, vz
+        v1 = dx1_dx*vx + dx1_dy*vy + dx1_dz*vz 
+        v2 = dx2_dx*vx + dx2_dy*vy + dx2_dz*vz 
+        return v1, v2
 
     def stereographic_projection(self,u):
         x = u[0]
@@ -236,16 +236,15 @@ class Solver:
                 deno
         return x,y,z
 
-    def convert_tangent_to_stereo(self,u,v):
+    def convert_tangent_stereo_to_euclidean(self,u,v):
         x1 = u[0]
         x2 = u[1]
         v1 = v[0]
         v2 = v[1]
         deno = 1. + x1*x1 + x2*x2
-        r = deno - 1.
         deno = deno*deno
         sqrt2 = sqrt(2.0)
-        dx_dx1 = (sqrt2*(1 - 2*x1 - r))/deno 
+        dx_dx1 = (sqrt2*(1 - 2*x1 - x1*x1 + x2*x2))/deno 
         dx_dx2 = -2.0*sqrt2*(1 + x1)*x2/deno 
 
         dy_dx1 = -4.*x1*x2/deno
@@ -254,10 +253,58 @@ class Solver:
         dz_dx1 = sqrt2*(-1 - 2*x1 + x1*x1 - x2*x2)/deno
         dz_dx2 = 2*sqrt2*(-1 + x1)*x2/deno 
 
-        v1 = dx_dx1*vx + dy_dx1*vy + dz_dx1*vz
-        v2 = dx_dx2*vx + dy_dx2*vy + dz_dx2*vz
+        vx = dx_dx1*v1 + dx_dx2*v2 
+        vy = dy_dx1*v1 + dy_dx2*v2 
+        vz = dz_dx1*v1 + dz_dx2*v2 
 
-        return v1, v2
+        return vx, vy, vz
+
+    def convert_tangent_euclidean_to_spherical(self,u,v):
+        x = u[0]
+        y = u[1]
+        z = u[2]
+        x2_p_y2 = sqrt(x*x + y*y)
+        dtheta_dx = x/x2_p_y2/z
+        dtheta_dy = y/x2_p_y2/z
+        dtheta_dz = -1.0/x2_p_y2
+        dphi_dx = y*z*z/x/x
+        dphi_dy = -z*z/x
+
+        vx = v[0]
+        vy = v[1]
+        vz = v[2]
+
+        v_t = vx*dtheta_dx + vy*dtheta_dy + \
+                vz*dtheta_dz
+        v_p = vx*dphi_dx + vy*dphi_dy 
+        
+        return v_t, v_p
+
+    def convert_tangent_spherical_to_euclidean(self,u,v):
+        x = u[0]
+        y = u[1]
+        z = u[2]
+        vtheta = v[0]
+        vphi = v[1]
+        n = x.shape[0]
+        ct = z
+        st = sqrt(x*x + y*y)
+        cp = x/st
+        sp = y/st
+        dx_dtheta = ct*cp
+        dx_dphi = -st*sp
+        dy_dtheta = ct*sp
+        dy_dphi = st*cp
+        dz_dtheta = -1.0*st
+       
+        vx = dx_dtheta*vtheta + dx_dphi*vphi
+        vy = dy_dtheta*vtheta + dy_dphi*vphi
+        vz = dz_dtheta*vtheta
+
+
+        return vx,vy,vz
+
+
 
 
     def tangent_source_half(self,v,u,s0,ds,sigma,a):

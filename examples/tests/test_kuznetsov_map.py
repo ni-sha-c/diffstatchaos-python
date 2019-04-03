@@ -489,6 +489,47 @@ def test_adjoint():
                 y0_fd[i] = (obj2 - obj1)/(2.0*epsi) 
         print(norm(y0_fd-y0_ana))
 
+def test_convert_tangent_spherical_to_euclidean():
+	solver = kmap.Solver()
+	n_steps = 10
+	s3_map = map_sens.Sensitivity(solver,n_steps)
+	n_runup = 10
+	u_init = solver.u_init
+	s0 = solver.s0
+	u_init = solver.primal_step(u_init, s0, n_runup)
+	u_trj = s3_map.solve_primal(solver,\
+            u_init, n_steps, solver.s0)
+	q1 = solver.convert_tangent_spherical_to_euclidean(u_trj.T,\
+            vstack((ones(n_steps),zeros(n_steps))))
+	q2 = solver.convert_tangent_spherical_to_euclidean(u_trj.T,\
+            vstack((zeros(n_steps),ones(n_steps))))
+	q1 = array(q1)
+	q2 = array(q2)
+	dot_product_q1_q2 = sum(q1*q2,axis=0)
+	print(norm(dot_product_q1_q2))
+	assert(norm(dot_product_q1_q2)<=1.e-10)
+	return
+
+def test_convert_tangent_stereo_to_euclidean():
+	solver = kmap.Solver()
+	n_steps = 10
+	s3_map = map_sens.Sensitivity(solver,n_steps)
+	n_runup = 10
+	u_init = solver.u_init
+	s0 = solver.s0
+	u_init = solver.primal_step(u_init, s0, n_runup)
+	u_trj = s3_map.solve_primal(solver,\
+            u_init, n_steps, solver.s0)
+	p1 = solver.convert_tangent_stereo_to_euclidean(u_trj.T,\
+            vstack((ones(n_steps),zeros(n_steps))))
+	p2 =  solver.convert_tangent_stereo_to_euclidean(u_trj.T,\
+            vstack((zeros(n_steps),ones(n_steps))))
+	p1 = vstack(p1)
+	p2 = vstack(p2)
+	dot_product_p1_p2 = sum(p1*p2,axis=0)
+	print(norm(dot_product_p1_p2))
+	assert(norm(dot_product_p1_p2)<=1.e-10)
+	return
 
 
 def test_tangentadjoint():

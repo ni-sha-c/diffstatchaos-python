@@ -34,6 +34,7 @@ if __name__=="__main__":
     u_mean = empty(n_c) 
     c = linspace(0.,2.,n_c)
     for i, c_i in enumerate(c):
+        print("c_i is ", c_i)
         for k in range(n_samples):
             mean_noise_init = rand()
             u_init = u0 + 0.1*mean_noise_init
