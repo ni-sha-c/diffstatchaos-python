@@ -27,11 +27,11 @@ def plot_solution():
 
 #def compute_ensemble_average():
 if __name__=="__main__":
-    n_samples = 1
-    n_steps = 200
-    n_runup = 100
-    n_c = 2
-    u_mean = empty(n_c)
+    n_samples = 10
+    n_steps = 2000
+    n_runup = 1000
+    n_c = 20
+    u_mean = zeros(n_c)
     s = solver.s0
     c = linspace(0.,2.,n_c)
     for i, c_i in enumerate(c):

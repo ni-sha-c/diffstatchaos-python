@@ -22,8 +22,8 @@ class Solver:
 
     def __init__(self):
         self.dt = 5.e-2
-        self.L = 8
-        self.state_dim = 7
+        self.L = 128
+        self.state_dim = 127
         self.param_dim = 5
         self.boundaries = ones((2,self.state_dim))        
         self.boundaries[0] = -0.5

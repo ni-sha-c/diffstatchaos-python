@@ -531,6 +531,54 @@ def test_convert_tangent_stereo_to_euclidean():
 	assert(norm(dot_product_p1_p2)<=1.e-10)
 	return
 
+def test_convert_tangent_euclidean_to_stereo():
+	solver = kmap.Solver()
+	n_steps = 10
+	s3_map = map_sens.Sensitivity(solver,n_steps)
+	n_runup = 10
+	u_init = solver.u_init
+	s0 = solver.s0
+	u_init = solver.primal_step(u_init, s0, n_runup)
+	u_trj = s3_map.solve_primal(solver,\
+            u_init, n_steps, solver.s0)
+	u_trj = u_trj.T
+	q = rand(2,n_steps)
+	q[0] = 0.
+	q[1] = 1.
+
+	q_euclidean = solver.convert_tangent_stereo_to_euclidean(u_trj,q)
+	q_euclidean = vstack(q_euclidean)
+	q_spherical = solver.convert_tangent_euclidean_to_spherical(u_trj,\
+                q_euclidean)
+	q_spherical = vstack(q_spherical)
+	p_euclidean = solver.convert_tangent_spherical_to_euclidean(u_trj,q_spherical)
+	p_euclidean = vstack(p_euclidean)
+	p_stereo = solver.convert_tangent_euclidean_to_stereo(u_trj,p_euclidean) 
+	p_stereo = vstack(p_stereo)
+	print(p_stereo)
+	assert(norm(p_stereo-q)<1.e-10)
+	return
+
+
+
+def test_convert_tangent_euclidean_to_spherical():
+	solver = kmap.Solver()
+	n_steps = 10
+	s3_map = map_sens.Sensitivity(solver,n_steps)
+	n_runup = 10
+	u_init = solver.u_init
+	s0 = solver.s0
+	u_init = solver.primal_step(u_init, s0, n_runup)
+	u_trj = s3_map.solve_primal(solver,\
+            u_init, n_steps, solver.s0)
+	q = rand(2,n_steps)
+	q_euclidean = solver.convert_tangent_spherical_to_euclidean(u_trj.T,q)
+	q_euclidean = vstack(q_euclidean)
+	q_spherical = solver.convert_tangent_euclidean_to_spherical(u_trj.T,\
+                q_euclidean)
+	assert(norm(q-q_spherical)<1.e-10)
+	return
+
 
 def test_tangentadjoint():
         u = rand(4)

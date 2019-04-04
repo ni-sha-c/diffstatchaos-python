@@ -190,27 +190,6 @@ class Solver:
         return r,theta,phi
     
    
-    def convert_tangent_euclidean_to_stereo(self, u, v):
-        x = u[0]
-        y = u[1]
-        z = u[2]
-        vx = v[0]
-        vy = v[1]
-        vz = v[2]
-        sqrt2 = sqrt(2.0)
-        deno = (x + z + sqrt2)
-        deno = deno*deno
-        dx1_dx = sqrt2*(sqrt2*z + 1)/deno
-        dx1_dy = zeros_like(x)
-        dx1_dz = -sqrt2*(sqrt2*x + 1)/deno
-
-        dx2_dx = -sqrt2*y/deno
-        dx2_dy = sqrt2/(x + z + sqrt2)
-        dx2_dz = -sqrt2*y/deno
-    
-        v1 = dx1_dx*vx + dx1_dy*vy + dx1_dz*vz 
-        v2 = dx2_dx*vx + dx2_dy*vy + dx2_dz*vz 
-        return v1, v2
 
     def stereographic_projection(self,u):
         x = u[0]
@@ -235,6 +214,28 @@ class Solver:
         z = (1. - r - 2.0*x1)/sqrt(2.0)/\
                 deno
         return x,y,z
+
+    def convert_tangent_euclidean_to_stereo(self, u, v):
+        x = u[0]
+        y = u[1]
+        z = u[2]
+        vx = v[0]
+        vy = v[1]
+        vz = v[2]
+        sqrt2 = sqrt(2.0)
+        deno = (x + z + sqrt2)
+        deno = deno*deno
+        dx1_dx = sqrt2*(sqrt2*z + 1)/deno
+        dx1_dy = zeros_like(x)
+        dx1_dz = -sqrt2*(sqrt2*x + 1)/deno
+
+        dx2_dx = -sqrt2*y/deno
+        dx2_dy = sqrt2/(x + z + sqrt2)
+        dx2_dz = -sqrt2*y/deno
+    
+        v1 = dx1_dx*vx + dx1_dy*vy + dx1_dz*vz 
+        v2 = dx2_dx*vx + dx2_dy*vy + dx2_dz*vz 
+        return v1, v2
 
     def convert_tangent_stereo_to_euclidean(self,u,v):
         x1 = u[0]
@@ -263,12 +264,13 @@ class Solver:
         x = u[0]
         y = u[1]
         z = u[2]
-        x2_p_y2 = sqrt(x*x + y*y)
-        dtheta_dx = x/x2_p_y2/z
-        dtheta_dy = y/x2_p_y2/z
-        dtheta_dz = -1.0/x2_p_y2
-        dphi_dx = y*z*z/x/x
-        dphi_dy = -z*z/x
+        x2_p_y2 = x*x + y*y
+        sqrt_x2_p_y2 = sqrt(x2_p_y2)
+        dtheta_dx = 0.
+        dtheta_dy = 0.
+        dtheta_dz = -1.0/sqrt_x2_p_y2
+        dphi_dx = -y/x2_p_y2
+        dphi_dy = x/x2_p_y2
 
         vx = v[0]
         vy = v[1]
