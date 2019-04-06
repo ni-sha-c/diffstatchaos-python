@@ -13,10 +13,7 @@ def tridvec(u_all,dx,fu_all):
 	coeff2 = -dx_inv_4
 
 	u = cuda.shared.array(shape=state_dim,dtype=float64)  
-	fu = cuda.shared.array(shape=state_dim,dtype=float64)  
-
 	u[t] = u_all[b, t]
-	fu[t] = fu_all[b, t]
 	cuda.syncthreads()
 
 	if(t==0):   
@@ -35,7 +32,7 @@ def tridvec(u_all,dx,fu_all):
 		Au = coeff1*u[t+1] + coeff1*u[t-1] + \
 				coeff0*u[t] + coeff2*u[t-2] + \
 				coeff2*u[t+2]
-	fu[t] = Au
+	fu_all[b,t] = Au
 		
 
 @cuda.jit
@@ -47,10 +44,8 @@ def advection(u_all,dx,s,gu_all):
 	b = cuda.blockIdx.x
 	
 	u = cuda.shared.array(shape=state_dim,dtype=float64)  
-	fu = cuda.shared.array(shape=state_dim,dtype=float64)  
 
 	u[t] = u_all[b, t]
-	gu[t] = gu_all[b, t]
 	cuda.syncthreads()
 
 	if t==0:
@@ -61,7 +56,7 @@ def advection(u_all,dx,s,gu_all):
 		Bu = coeffl*u[t+1] - coeffl*u[t-1] + \
 				coeffnl*u[t+1]*u[t+1] - \
 				coeffnl*u[t-1]*u[t-1]
-	gu[t] = Bu
+	gu_all[b,t] = Bu
 
 #@cuda.jit
 #def imexrk2r(u,n):
