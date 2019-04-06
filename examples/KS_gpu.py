@@ -1,7 +1,7 @@
 from pylab import *
 from numpy import *
 from numba import cuda
-from numba import int64, float64
+from numba import int64, float64, int32, float32
         
 
 n_stage = 4
@@ -26,47 +26,13 @@ state_dim = 127
 dx_host = L/(state_dim + 1)
 dx = cuda.to_device(dx_host)
 
-@cuda.jit(device=True)
-def primal_implicit_update(u, stage_no, C):
-	an = A_imp[stage_no, stage_no]
-	state_dim = state_dim
-	B = eye(state_dim) - dt*an*A
-	C = linalg.solve(B,dot(A,u))
-
-@cuda.jit(device=True)
-def primal_implicit_matrix(u, A):
+@cuda.jit
+def primal_step(u, s, n_steps, dt):
 	state_dim = u.shape[0]
-	dx_inv = 1./dx
-	dx_inv_sq = dx_inv*dx_inv
-	dx_inv_4 = dx_inv_sq*dx_inv_sq
-	A = (dx_inv_sq - 4.0*dx_inv_4)*diag(ones(state_dim-1),1) + \
-		(dx_inv_sq - 4.0*dx_inv_4)*diag(ones(state_dim-1),-1) + \
-		(-2.0*dx_inv_sq + 6.0*dx_inv_4)*eye(state_dim) + \
-		 dx_inv_4*diag(ones(state_dim-2),2) + \
-		 dx_inv_4*diag(ones(state_dim-2),-2)
-
-	A[0, 0] += dx_inv_4
-	A[-1, -1] += dx_inv_4
-	A *= -1.0
-
-
-
-'''
-@cuda.jit(device=True)
-def primal_step(u0,s,n_steps):
-	n_stage = n_stage
-	dt = dt
-	state_dim = state_dim
-	evf = primal_explicit_vector_field
-	ivf = primal_implicit_vector_field
-	iu = primal_implicit_update
-	dudt_exp = zeros((n_stage,state_dim))
-	dudt_imp = zeros((n_stage,state_dim))
-	A_exp = A_exp
-	A_imp = A_imp
-	b_exp = b_exp
-	b_imp = b_imp
-	u = copy(u0)
+	lu = cuda.local.array(state_dim, dtype=float32)
+	t = grid(1)
+	for i in range(state_dim):
+		lu[i] = u[t,i]	
 	for i in range(n_steps):
 		explicit_field = copy(u)
 		implicit_field = iu(explicit_field,0)
