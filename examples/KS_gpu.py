@@ -40,30 +40,38 @@ def rhs_stage_comp(u):
 
 
 @cuda.jit
-def imexrk342r(u_all,A,Imp_1,Imp_2,A_imp,A_exp,brk):
+def imexrk342r(u_all,A,Imp_1,Imp_2,A_imp,A_exp,brk,u_mean_all):
 	u = cuda.shared.array(shape=state_dim,dtype=float64)  
 	u_imp = cuda.shared.array(shape=state_dim,dtype=float64)  
+	u_mean = 0.
 	t = cuda.threadIdx.x
 	b = cuda.blockIdx.x
 	u[t] = u_all[b, t]
-	u_imp[t] = u_all[b,t]
-	cuda.syncthreads()
-	for k in range(1,4):
-		f,g = rhs_stage_comp(u_imp)
-		u_imp[t] = u[t] + dt*(A_imp[k,k-1] - \
-			brk[k-1])*f + dt*(A_exp[k,k-1] -\
-			brk[k-1])*g	
-		f = 0.
-		for i in range(state_dim):
-			f += Imp_1[t,i]*u_imp[i]
-		u_imp[t] = f
+	Imp = Imp_1[t]
+	for n in range(n_steps):
+		u_imp[t] = u[t]
 		cuda.syncthreads()
-		f,g = rhs_stage_comp(u_imp)
-		u[t] = u[t] + dt*brk[1]*f + \
-				dt*brk[1]*g
-		cuda.syncthreads()
-
-
+		for k in range(1,4):
+			f,g = rhs_stage_comp(u_imp)
+			u_imp[t] = u[t] + dt*(A_imp[k,k-1] - \
+				brk[k-1])*f + dt*(A_exp[k,k-1] -\
+				brk[k-1])*g	
+			f = 0.
+			if k > 1:
+				Imp = Imp_2[t]
+			for i in range(state_dim):
+				f += Imp[i]*u_imp[i]
+			cuda.syncthreads()
+			u_imp[t] = f
+			cuda.syncthreads()
+			f,g = rhs_stage_comp(u_imp)
+			u[t] = u[t] + dt*brk[k]*f + \
+					dt*brk[k]*g
+		if(n>1000):
+			u_mean += u[t]
+	
+	u_all[b,t] = u[t]
+	u_mean_all[b] += u_mean/state_dim
 
 
 
@@ -73,6 +81,7 @@ n_samples = 1000
 dx = L/(state_dim + 1)
 tpb = state_dim
 bpg = n_samples
+n_steps = 3000
 n_stage = 4
 A_exp_host = np.array([zeros(n_stage),\
 		[1./3,0.,0.,0.],\
@@ -110,5 +119,8 @@ Imp_1 = np.linalg.inv(eye(state_dim) - dt*A_imp[1,1]*A)
 Imp_2 = np.linalg.inv(eye(state_dim) - dt*A_imp[2,2]*A)
 Imp_1 = cuda.to_device(Imp_1)
 Imp_2 = cuda.to_device(Imp_2)
-u_all = ones((n_samples,state_dim))
-imexrk342r[bpg, tpb](u_all,A,Imp_1,Imp_2,A_imp,A_exp,brk)
+u_all = -0.5 + random.rand(n_samples,state_dim)
+u_mean_all = zeros(n_samples)
+imexrk342r[bpg, tpb](u_all,A,Imp_1,Imp_2,A_imp,A_exp,brk,u_mean_all)
+u_mean_all /= 2000
+u_mean = np.mean(u_mean_all)
