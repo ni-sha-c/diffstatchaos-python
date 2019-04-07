@@ -43,22 +43,10 @@ def rhs_stage_comp(u):
 def imexrk342r(u_all,A,Imp_1,Imp_2,A_imp,A_exp,brk):
 	u = cuda.shared.array(shape=state_dim,dtype=float64)  
 	u_imp = cuda.shared.array(shape=state_dim,dtype=float64)  
-	u_buf = cuda.shared.array(shape=state_dim,dtype=float64)  
 	t = cuda.threadIdx.x
 	b = cuda.blockIdx.x
 	u[t] = u_all[b, t]
 	u_imp[t] = u_all[b,t]
-	u_buf[t] = u_all[b,t]
-	f,g = rhs_stage_comp(u)
-	u_buf[t] = u[t] + dt*A_imp[1,0]*f + \
-					dt*A_exp[1,0]*g
-	cuda.syncthreads()
-	u_imp[t] = u_buf[t]
-	cuda.syncthreads()
-	f = 0.
-	for i in range(state_dim):
-		f += Imp_1[t,i]*u_imp[i]
-	u_imp[t] = f
 	cuda.syncthreads()
 	for k in range(1,4):
 		f,g = rhs_stage_comp(u_imp)
