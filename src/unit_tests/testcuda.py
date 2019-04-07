@@ -1,8 +1,10 @@
 from numba import cuda, float64, int64
+import cupy as cp
 import numpy as np
 
+'''
 @cuda.jit
-def tridvec(u_all,dx,fu_all):
+def imexrk342r(u0_all,dx,un_all):
 	t = cuda.threadIdx.x
 	b = cuda.blockIdx.x
 	dx_inv = 1/dx
@@ -13,9 +15,16 @@ def tridvec(u_all,dx,fu_all):
 	coeff2 = -dx_inv_4
 
 	u = cuda.shared.array(shape=state_dim,dtype=float64)  
+	u_imp = cuda.shared.array(shape=state_dim,dtype=float64)  
 	u[t] = u_all[b, t]
 	cuda.syncthreads()
 
+	for n in range(n_steps):
+		u_imp[t] = u[t] 
+		cuda.syncthreads()
+		u_imp = np.linalg.solve(				
+		for k in range(1,n_stage):
+			
 	if(t==0):   
 		Au = (2.0*dx_inv_2 - 7.0*dx_inv_4)*u[0] + \
 				coeff1*u[1] + coeff2*u[2]
@@ -33,7 +42,18 @@ def tridvec(u_all,dx,fu_all):
 				coeff0*u[t] + coeff2*u[t-2] + \
 				coeff2*u[t+2]
 	fu_all[b,t] = Au
-		
+'''		
+@cuda.jit
+def primal_step_stage0(u_all,dx,u_imp_all):
+	t = cuda.threadIdx.x
+	b = cuda.blockIdx.x
+	u = cuda.shared.array(shape=state_dim,dtype=float64)
+	u_imp = cuda.shared.array(shape=state_dim,dtype=float64)
+	u[t] = u_all[b,t]
+	u_imp[t] = u_imp_all[b,t]
+	cuda.syncthreads()
+	if  
+
 
 @cuda.jit
 def advection(u_all,dx,s,gu_all):
@@ -58,10 +78,6 @@ def advection(u_all,dx,s,gu_all):
 				coeffnl*u[t-1]*u[t-1]
 	gu_all[b,t] = Bu
 
-#@cuda.jit
-#def imexrk2r(u,n):
-#	for i in np.range(n):
-#		for k in np.range(4):
 			
 		
 L = 512
@@ -73,7 +89,7 @@ n_samples = bpg
 u = np.ones((n_samples,state_dim))
 s = 1.0
 Au = np.zeros_like(u) 
-tridvec[bpg, tpb](u, dx, Au)
+#tridvec[bpg, tpb](u, dx, Au)
 dx_inv = 1/dx
 dx_inv_2 = dx_inv*dx_inv
 dx_inv_4 = dx_inv_2*dx_inv_2
@@ -89,7 +105,7 @@ A[0,0] += coeff2
 A[-1,-1] += coeff2
 Au_cpu = np.dot(A,u.T)
 Au_cpu = Au_cpu.T
-assert(np.linalg.norm(Au - Au_cpu)<=1.e-10)
+#assert(np.linalg.norm(Au - Au_cpu)<=1.e-10)
 Bu = np.zeros_like(u)
 advection[bpg, tpb](u, dx, s, Bu)
 coeffl = 0.5*dx_inv
