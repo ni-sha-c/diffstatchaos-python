@@ -28,7 +28,7 @@ def rhs_stage_comp(u):
 		g = coeffl*u[t+1] - coeffl*u[t-1] + \
                 coeffnl*u[t+1]*u[t+1] - \
                 coeffnl*u[t-1]*u[t-1]
-	elif t < state_dim-1:
+	else:
 		f = coeff1*u[t+1] + coeff1*u[t-1] + \
                 coeff0*u[t] + coeff2*u[t-2] + \
                 coeff2*u[t+2]
@@ -78,6 +78,7 @@ def imexrk342r(u_all,A,Imp_1,Imp_2,A_imp,A_exp,brk,u_mean_all):
 L = 128
 state_dim = 127
 n_samples = 1000
+s = 2.0
 dx = L/(state_dim + 1)
 tpb = state_dim
 bpg = n_samples
@@ -103,8 +104,8 @@ dt = 1.e-1
 coeff0 = 2.0*dx_inv_2 - 6.*dx_inv_4
 coeff1 = -dx_inv_2 + 4.*dx_inv_4
 coeff2 = -dx_inv_4
-coeffl = 0.5*dx_inv
-coeffnl = 0.25*dx_inv
+coeffl = -0.5*s*dx_inv
+coeffnl = -0.25*dx_inv
 A = coeff0*np.diag(np.ones(state_dim),0) + \
     coeff1*np.diag(np.ones(state_dim - 1),1) + \
     coeff1*np.diag(np.ones(state_dim - 1),-1) + \
