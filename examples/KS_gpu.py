@@ -4,17 +4,10 @@ from numba import cuda
 from numba import int64, float64, int32, float32
 import cupy as cp
 import numpy as np
-@cuda.jit
-def imexrk342r(u_all,A,A_imp,A_exp,brk):
-	u = cuda.shared.array(shape=state_dim,dtype=float64)  
-	u_imp = cuda.shared.array(shape=state_dim,dtype=float64)  
-	u_buf = cuda.shared.array(shape=state_dim,dtype=float64)  
-	t = cuda.threadIdx.x
-	b = cuda.blockIdx.x
-	u[t] = u_all[b, t]
-	u_imp[t] = u_all[b,t]
-	u_buf[t] = u_all[b,t]
 
+@cuda.jit(device=True)
+def rhs_stage_comp(u):
+	t = cuda.threadIdx.x 
 	if(t==0):   
 		f = (2.0*dx_inv_2 - 7.0*dx_inv_4)*u[0] + \
                 coeff1*u[1] + coeff2*u[2]
@@ -43,17 +36,45 @@ def imexrk342r(u_all,A,A_imp,A_exp,brk):
                 coeffnl*u[t+1]*u[t+1] - \
                 coeffnl*u[t-1]*u[t-1]
 
+	return f,g
+
+
+@cuda.jit
+def imexrk342r(u_all,A,Imp_1,Imp_2,A_imp,A_exp,brk):
+	u = cuda.shared.array(shape=state_dim,dtype=float64)  
+	u_imp = cuda.shared.array(shape=state_dim,dtype=float64)  
+	u_buf = cuda.shared.array(shape=state_dim,dtype=float64)  
+	t = cuda.threadIdx.x
+	b = cuda.blockIdx.x
+	u[t] = u_all[b, t]
+	u_imp[t] = u_all[b,t]
+	u_buf[t] = u_all[b,t]
+	f,g = rhs_stage_comp(u)
 	u_buf[t] = u[t] + dt*A_imp[1,0]*f + \
 					dt*A_exp[1,0]*g
 	cuda.syncthreads()
 	u_imp[t] = u_buf[t]
 	cuda.syncthreads()
+	f = 0.
+	for i in range(state_dim):
+		f += Imp_1[t,i]*u_imp[i]
+	u_imp[t] = f
+	cuda.syncthreads()
+	for k in range(1,4):
+		f,g = rhs_stage_comp(u_imp)
+		u_imp[t] = u[t] + dt*(A_imp[k,k-1] - \
+			brk[k-1])*f + dt*(A_exp[k,k-1] -\
+			brk[k-1])*g	
+		f = 0.
+		for i in range(state_dim):
+			f += Imp_1[t,i]*u_imp[i]
+		u_imp[t] = f
+		cuda.syncthreads()
+		f,g = rhs_stage_comp(u_imp)
+		u[t] = u[t] + dt*brk[1]*f + \
+				dt*brk[1]*g
+		cuda.syncthreads()
 
-	#	for i in range(state_dim):
-	
-
-
-	
 
 
 
@@ -99,5 +120,7 @@ A = cuda.to_device(A)
 #Imp_0 is eye(state_dim) and Imp_3 = Imp_2 so neither is stored.
 Imp_1 = np.linalg.inv(eye(state_dim) - dt*A_imp[1,1]*A)
 Imp_2 = np.linalg.inv(eye(state_dim) - dt*A_imp[2,2]*A)
+Imp_1 = cuda.to_device(Imp_1)
+Imp_2 = cuda.to_device(Imp_2)
 u_all = ones((n_samples,state_dim))
-imexrk342r[bpg, tpb](u_all,A,A_imp,A_exp,brk)
+imexrk342r[bpg, tpb](u_all,A,Imp_1,Imp_2,A_imp,A_exp,brk)
