@@ -6,7 +6,9 @@ import cupy as cp
 import numpy as np
 
 @cuda.jit(device=True)
-def rhs_stage_comp(u):
+def rhs_stage_comp(u,coeffl,coeffnl,\
+				coeff0,coeff1,coeff2,\
+				dx_inv_2,dx_inv_4):
 	t = cuda.threadIdx.x 
 	if(t==0):   
 		f = (2.0*dx_inv_2 - 7.0*dx_inv_4)*u[0] + \
@@ -40,19 +42,24 @@ def rhs_stage_comp(u):
 
 
 @cuda.jit
-def imexrk342r(u_all,A,Imp_1,Imp_2,A_imp,A_exp,brk,u_mean_all):
+def imexrk342r(u_all,A,Imp_1,Imp_2,A_imp,A_exp,brk,\
+		coeffl,coeffnl,coeff0,coeff1,coeff2,dx_inv_2,\
+		dx_inv_4,dt,u_mean_all):
 	u = cuda.shared.array(shape=state_dim,dtype=float64)  
 	u_imp = cuda.shared.array(shape=state_dim,dtype=float64)  
 	u_mean = 0.
 	t = cuda.threadIdx.x
 	b = cuda.blockIdx.x
 	u[t] = u_all[b, t]
-	Imp = Imp_1[t]
+
 	for n in range(n_steps):
 		u_imp[t] = u[t]
+		Imp = Imp_1[t]
 		cuda.syncthreads()
 		for k in range(1,4):
-			f,g = rhs_stage_comp(u_imp)
+			f,g = rhs_stage_comp(u_imp,coeffl,\
+			coeffnl,coeff0,coeff1,coeff2,dx_inv_2,\
+			dx_inv_4)
 			u_imp[t] = u[t] + dt*(A_imp[k,k-1] - \
 				brk[k-1])*f + dt*(A_exp[k,k-1] -\
 				brk[k-1])*g	
@@ -64,10 +71,11 @@ def imexrk342r(u_all,A,Imp_1,Imp_2,A_imp,A_exp,brk,u_mean_all):
 			cuda.syncthreads()
 			u_imp[t] = f
 			cuda.syncthreads()
-			f,g = rhs_stage_comp(u_imp)
+			f,g = rhs_stage_comp(u_imp,coeffl,coeffnl,\
+			coeff0,coeff1,coeff2,dx_inv_2,dx_inv_4)
 			u[t] = u[t] + dt*brk[k]*f + \
 					dt*brk[k]*g
-		if(n>1000):
+		if(n>2000):
 			u_mean += u[t]
 	
 	u_all[b,t] = u[t]
@@ -77,12 +85,12 @@ def imexrk342r(u_all,A,Imp_1,Imp_2,A_imp,A_exp,brk,u_mean_all):
 
 L = 128
 state_dim = 127
-n_samples = 1000
-s = 2.0
+n_samples = 10
+s = 1.3
 dx = L/(state_dim + 1)
 tpb = state_dim
 bpg = n_samples
-n_steps = 3000
+n_steps = 4000
 n_stage = 4
 A_exp_host = np.array([zeros(n_stage),\
 		[1./3,0.,0.,0.],\
@@ -104,7 +112,7 @@ dt = 1.e-1
 coeff0 = 2.0*dx_inv_2 - 6.*dx_inv_4
 coeff1 = -dx_inv_2 + 4.*dx_inv_4
 coeff2 = -dx_inv_4
-coeffl = -0.5*s*dx_inv
+
 coeffnl = -0.25*dx_inv
 A = coeff0*np.diag(np.ones(state_dim),0) + \
     coeff1*np.diag(np.ones(state_dim - 1),1) + \
@@ -120,8 +128,17 @@ Imp_1 = np.linalg.inv(eye(state_dim) - dt*A_imp[1,1]*A)
 Imp_2 = np.linalg.inv(eye(state_dim) - dt*A_imp[2,2]*A)
 Imp_1 = cuda.to_device(Imp_1)
 Imp_2 = cuda.to_device(Imp_2)
-u_all = -0.5 + random.rand(n_samples,state_dim)
-u_mean_all = zeros(n_samples)
-imexrk342r[bpg, tpb](u_all,A,Imp_1,Imp_2,A_imp,A_exp,brk,u_mean_all)
-u_mean_all /= 2000
-u_mean = np.mean(u_mean_all)
+
+n_points = 20
+s = linspace(0.,2.,n_points)
+u_mean = zeros(n_points)
+
+for i, si in enumerate(s):
+	u_mean_all = zeros(n_samples)
+	coeffl = -0.5*si*dx_inv
+	u_all = -0.5 + random.rand(n_samples,state_dim)
+	imexrk342r[bpg, tpb](u_all,A,Imp_1,Imp_2,A_imp,A_exp,brk,coeffl,\
+			coeffnl,coeff0,coeff1,coeff2,dx_inv_2,dx_inv_4,dt,\
+			u_mean_all)
+	u_mean_all /= 2000
+	u_mean[i] = np.mean(u_mean_all)
