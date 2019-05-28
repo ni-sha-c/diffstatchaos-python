@@ -31,6 +31,7 @@ if __name__=="__main__":
     n_steps = 2000
     n_runup = 1000
     n_c = 20
+	state_dim = solver.state_dim
     u_mean = zeros(n_c)
     s = solver.s0
     c = linspace(0.,2.,n_c)
@@ -38,8 +39,7 @@ if __name__=="__main__":
         print("c_i is ", c_i)
         s[0] = c_i
         for k in range(n_samples):
-            mean_noise_init = rand()
-            u_init = u0 + 0.1*mean_noise_init
+            u_init = -0.5 + random.rand(state_dim)
             u_init = solver.primal_step(u_init,\
                     s, n_runup)
             u_trj_k = solve_primal(solver, \
