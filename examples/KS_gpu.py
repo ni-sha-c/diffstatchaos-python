@@ -80,8 +80,9 @@ def rk342r(u_all,ark,brk,coeff,dx,dt,u_mean_all):
 	u_np1 = cuda.shared.array(shape=state_dim,dtype=float64)  
 	u_mean = cuda.shared.array(shape=state_dim,dtype=float64)
 	t = cuda.threadIdx.x
-	b = cuda.blockIdx.x
-	u_np1[t] = u_all[b, t]
+	bx = cuda.blockIdx.x
+	by = cuda.blockIdx.y
+	u_np1[t] = u_all[bx, by, t]
 	u_mean[t] = 0.
 	for n in range(n_steps):
 		u_n[t] = u_np1[t]
@@ -92,10 +93,10 @@ def rk342r(u_all,ark,brk,coeff,dx,dt,u_mean_all):
 			ki[t] = dt*dudt(u,coeff,dx_inv,dx_inv_2,\
 			dx_inv_4)
 			u_np1[t] += brk[i]*ki[t]
-		if(n>2000):
+		if(n>3*n_steps/4):
 			u_mean[t] += u_n[t]
-	u_all[b,t] = u_n[t]
-	u_mean_all[b,t] = u_mean[t]
+	u_all[bx,by,t] = u_n[t]
+	u_mean_all[bx,by,t] = u_mean[t]
 
 
 @cuda.jit
@@ -132,7 +133,7 @@ def imexrk342r(u_all,A,Imp_1,Imp_2,A_imp,A_exp,brk,\
 			coeff0,coeff1,coeff2,dx_inv_2,dx_inv_4)
 			u[t] = u[t] + dt*brk[k]*f + \
 					dt*brk[k]*g
-		if(n>2000):
+		if(n>n_steps/2):
 			u_mean[t] += u[t]
 	
 	u_all[b,t] = u[t]
@@ -140,13 +141,15 @@ def imexrk342r(u_all,A,Imp_1,Imp_2,A_imp,A_exp,brk,\
 
 
 
-L = 512
-state_dim = 511
-n_samples = 10
+L = 128
+state_dim = 127
+bpgx = 512
+bpgy = 32
+n_samples = bpgx*bpgy
 dx = L/(state_dim + 1)
 tpb = state_dim
-bpg = n_samples
-n_steps = 4000
+bpg = (bpgx, bpgy)
+n_steps = 10000
 n_stage = 4
 A_exp_host = np.array([zeros(n_stage),\
 		[1./3,0.,0.,0.],\
@@ -169,7 +172,7 @@ a_exprk = cuda.to_device(a_exprk_host)
 dx_inv = 1/dx
 dx_inv_2 = dx_inv*dx_inv
 dx_inv_4 = dx_inv_2*dx_inv_2
-dt = 1.e-2
+dt = 1.e-1
 coeff0 = 2.0*dx_inv_2 - 6.*dx_inv_4
 coeff1 = -dx_inv_2 + 4.*dx_inv_4
 coeff2 = -dx_inv_4
@@ -195,19 +198,18 @@ s = linspace(0.,2.,n_points)
 u_mean = zeros(n_points)
 
 for i, si in enumerate(s):
-	u_mean_all = zeros((n_samples,state_dim))
+	u_mean_all = zeros((bpgx,bpgy,state_dim))
 	coeffl = -0.5*si*dx_inv
-	u_all = random.rand(n_samples,state_dim)
+	u_all = -0.5 + 0.5*random.rand(bpgx,bpgy,state_dim)
 	#imexrk342r[bpg, tpb](u_all,A,Imp_1,Imp_2,A_imp,A_exp,brk,coeffl,\
 	#		coeffnl,coeff0,coeff1,coeff2,dx_inv_2,dx_inv_4,dt,\
 	#			u_mean_all)
 
 	rk342r[bpg,tpb](u_all,a_exprk,b_exprk,si,dx,dt,u_mean_all)
 
-	u_mean_all /= 2000
-	u_mean[i] = (sum(u_mean_all[:,0])/2. + \
-		sum(u_mean_all[:,1:-1]) + \
-		sum(u_mean_all[:,-1])/2.0)/n_samples/state_dim
+	u_mean_all /= (n_steps/4)
+	u_mean[i] = (sum(u_mean_all[:,:,0])/2. + \
+		sum(u_mean_all[:,:,1:-1]) + \
+		sum(u_mean_all[:,:,-1])/2.0)/n_samples/state_dim
 		
-savetxt('u_all.txt', u_all)
 savetxt('u_mean.txt',u_mean)
