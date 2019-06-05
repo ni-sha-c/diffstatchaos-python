@@ -20,19 +20,19 @@ class S3(SerialRunner):
         print(case)
         self.copyCase(case)
         data = self.runPrimal(initFields, (parameter, nSteps), case, args='--hdf5')
-        if run_id=='0':
+        if run_id=='tempPrimal':
 	    shutil.rmtree(case)
         return data
 
     def adjoint(self, initPrimalFields, parameter, nSteps, initAdjointFields, run_id):
         case = self.base + 'temp/' + run_id + "/"
         self.copyCase(case)
-        data = self.runAdjoint(initPrimalFields, (parameter, nSteps), initAdjointFields, case, homogeneous=True)
+        data = self.runAdjoint(initPrimalFields, (parameter, nSteps), initAdjointFields, case, homogeneous=True, args='--hdf5')
         return data[0] 
 
 def solve_unstable_tangent(runner, tanField, nSteps, time, trjdir):
     dt = runner.dt
-    eps = 1.e-4
+    eps = 1.e-6
     parameter = 0.0
     primalFieldOrig = runner.readFields(trjdir, time)
     tanDir = runner.base + 'temp/' + 'tangent/'
@@ -42,15 +42,16 @@ def solve_unstable_tangent(runner, tanField, nSteps, time, trjdir):
     for i in range(nSteps):
         primalFieldPert = primalFieldOrig + eps*tanField
         primalFieldPert, _ = runner(primalFieldPert, parameter,\
-                            1, '0')
+                            1, 'tempPrimal')
+        time += dt
+        primalFieldOrig = runner.readFields(trjdir, time) 
+
         tanField = (primalFieldPert - primalFieldOrig)/eps
         norm_tan = np.linalg.norm(tanField)
         tanField /= norm_tan
-        lyap_exp += np.log(norm_tan)/nSteps
-        print("nsteps, lyap_exp", i, lyap_exp)
+        lyap_exp += np.log(norm_tan)/(dt*nSteps)
+        print("time, lyap_exp", time, lyap_exp)
         runner.writeFields(tanField, tanDir, time) 
-        time += dt
-        primalFieldOrig = runner.readFields(trjdir, time) 
     return lyap_exp 
 
 def solve_unstable_adjoint(runner, adjField, nSteps, initTime,\
@@ -84,27 +85,24 @@ def main():
 
     runner = S3(base, time, dt, template, nProcs=nProcs, flags=['-g', '--gpu_double'])
     #s3sens = map_sens.Sensitivity
-    nSteps = 20000
-    nExponents = 2
+    nSteps = 6000
+    nExponents = 1
     runUpSteps = 0
     parameter = 0.0
     checkpointPath = base + 'checkpoint/'
-
-    time = 30.6762
     trjdir = base + 'temp/' + 'primal/'
-    initField = runner.readFields(trjdir, time)
-
+    time = 30.0
+    initField = runner.readFields(base, time)
+    runId = 'primal'
     #outField = runner(initField, parameter, nSteps, runId)
-    tanInit = np.random.rand(initField.shape[0])
-    tanInit /= np.linalg.norm(tanInit)
-
-
-    le = solve_unstable_tangent(runner, tanInit, nSteps, time, trjdir)
-    print(le)
-    #initTime = 30.0
-    #finalTime = initTime + dt 
-    #adjField = np.random.rand(initField.shape[0])    
-    #le = solve_unstable_adjoint(runner, adjField, 1, initTime,\
-    #                      finalTime, parameter, case)
+    #tanInit = np.ones(initField.shape[0])
+    #tanInit /= np.linalg.norm(tanInit)
+    #le = solve_unstable_tangent(runner, tanInit, nSteps, time, trjdir)
+    #print(le)
+    initTime = 30.0
+    finalTime = initTime + dt 
+    adjField = np.random.rand(initField.shape[0])    
+    le = solve_unstable_adjoint(runner, adjField, 1, initTime,\
+                          finalTime, parameter, trjdir)
 if __name__ == '__main__':
     main()
